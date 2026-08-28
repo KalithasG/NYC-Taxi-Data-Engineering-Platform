@@ -139,21 +139,6 @@
         "FROM gold.data_quality\n",
         "ORDER BY source_hash"
       ]
-    },
-    {
-      "name": "quarantine",
-      "displayName": "Quarantine breakdown (DQ-015)",
-      "queryLines": [
-        "SELECT\n",
-        "    rule_id,\n",
-        "    quarantine_reason,\n",
-        "    COUNT(*) AS rejected_rows,\n",
-        "    ROUND(100.0 * COUNT(*) / (SELECT SUM(total_records) FROM gold.data_quality), 4)\n",
-        "        AS pct_of_batch\n",
-        "FROM silver_trips_quarantine\n",
-        "GROUP BY rule_id, quarantine_reason\n",
-        "ORDER BY rejected_rows DESC"
-      ]
     }
   ],
   "pages": [
@@ -511,28 +496,16 @@
         },
         {
           "widget": {
-            "name": "w_quarantine",
+            "name": "w_quarantined",
             "queries": [
               {
                 "name": "main_query",
                 "query": {
-                  "datasetName": "quarantine",
+                  "datasetName": "dq",
                   "fields": [
                     {
-                      "name": "rule_id",
-                      "expression": "`rule_id`"
-                    },
-                    {
-                      "name": "quarantine_reason",
-                      "expression": "`quarantine_reason`"
-                    },
-                    {
-                      "name": "rejected_rows",
-                      "expression": "`rejected_rows`"
-                    },
-                    {
-                      "name": "pct_of_batch",
-                      "expression": "`pct_of_batch`"
+                      "name": "quarantined_records",
+                      "expression": "`quarantined_records`"
                     }
                   ],
                   "disaggregated": true
@@ -540,125 +513,19 @@
               }
             ],
             "spec": {
-              "version": 1,
-              "widgetType": "table",
+              "version": 2,
+              "widgetType": "counter",
               "encodings": {
-                "columns": [
-                  {
-                    "fieldName": "rule_id",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 0,
-                    "title": "Rule",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "Rule"
-                  },
-                  {
-                    "fieldName": "quarantine_reason",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "string",
-                    "displayAs": "string",
-                    "visible": true,
-                    "order": 1,
-                    "title": "Reason",
-                    "allowSearch": false,
-                    "alignContent": "left",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "Reason"
-                  },
-                  {
-                    "fieldName": "rejected_rows",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "integer",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 2,
-                    "title": "Rejected rows",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "Rejected rows"
-                  },
-                  {
-                    "fieldName": "pct_of_batch",
-                    "booleanValues": [
-                      "false",
-                      "true"
-                    ],
-                    "imageUrlTemplate": "{{ @ }}",
-                    "imageTitleTemplate": "{{ @ }}",
-                    "imageWidth": "",
-                    "imageHeight": "",
-                    "linkUrlTemplate": "{{ @ }}",
-                    "linkTextTemplate": "{{ @ }}",
-                    "linkTitleTemplate": "{{ @ }}",
-                    "linkOpenInNewTab": true,
-                    "type": "float",
-                    "displayAs": "number",
-                    "visible": true,
-                    "order": 3,
-                    "title": "% of batch",
-                    "allowSearch": false,
-                    "alignContent": "right",
-                    "allowHTML": false,
-                    "highlightLinks": false,
-                    "useMonospaceFont": false,
-                    "preserveWhitespace": false,
-                    "displayName": "% of batch"
-                  }
-                ]
+                "value": {
+                  "fieldName": "quarantined_records",
+                  "displayName": "Quarantined Records"
+                }
               },
               "frame": {
                 "showTitle": true,
-                "title": "Quarantine by Rule",
+                "title": "Quarantined Records",
                 "showDescription": true,
-                "description": "Empty means nothing was rejected, not that the rules did not run."
+                "description": "Rows rejected to silver_trips_quarantine. Zero means nothing was rejected, not that the rules did not run."
               }
             }
           },
@@ -905,7 +772,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 0,
+                    "order": 100000,
                     "title": "Vendor",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -932,7 +799,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 1,
+                    "order": 100001,
                     "title": "Trips",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -959,7 +826,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 2,
+                    "order": 100002,
                     "title": "Share (%)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -986,7 +853,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 3,
+                    "order": 100003,
                     "title": "Avg (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1013,7 +880,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 4,
+                    "order": 100004,
                     "title": "P50 (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1040,7 +907,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 5,
+                    "order": 100005,
                     "title": "P90 (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1067,7 +934,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 6,
+                    "order": 100006,
                     "title": "Avg Est. Distance (km)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1094,7 +961,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 7,
+                    "order": 100007,
                     "title": "Avg Est. Speed (km/h)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1106,6 +973,12 @@
                   }
                 ]
               },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
               "frame": {
                 "showTitle": true,
                 "title": "Vendor Comparison (KPI-013..015)",
@@ -1297,7 +1170,7 @@
                     "type": "string",
                     "displayAs": "string",
                     "visible": true,
-                    "order": 0,
+                    "order": 100000,
                     "title": "Route",
                     "allowSearch": false,
                     "alignContent": "left",
@@ -1324,7 +1197,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 1,
+                    "order": 100001,
                     "title": "Trips",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1351,7 +1224,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 2,
+                    "order": 100002,
                     "title": "Avg (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1378,7 +1251,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 3,
+                    "order": 100003,
                     "title": "P50 (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1405,7 +1278,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 4,
+                    "order": 100004,
                     "title": "P90 (min)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1432,7 +1305,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 5,
+                    "order": 100005,
                     "title": "Avg Est. Distance (km)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1459,7 +1332,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 6,
+                    "order": 100006,
                     "title": "Avg Est. Speed (km/h)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1471,6 +1344,12 @@
                   }
                 ]
               },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
               "frame": {
                 "showTitle": true,
                 "title": "Top 10 Routes (KPI-012)",
@@ -1574,7 +1453,7 @@
                     "type": "string",
                     "displayAs": "string",
                     "visible": true,
-                    "order": 0,
+                    "order": 100000,
                     "title": "Source",
                     "allowSearch": false,
                     "alignContent": "left",
@@ -1601,7 +1480,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 1,
+                    "order": 100001,
                     "title": "Total",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1628,7 +1507,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 2,
+                    "order": 100002,
                     "title": "Valid",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1655,7 +1534,7 @@
                     "type": "integer",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 3,
+                    "order": 100003,
                     "title": "Quarantined",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1682,7 +1561,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 4,
+                    "order": 100004,
                     "title": "Quality (%)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1709,7 +1588,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 5,
+                    "order": 100005,
                     "title": "Invalid (%)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1736,7 +1615,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 6,
+                    "order": 100006,
                     "title": "Duplicate (%)",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1763,7 +1642,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 7,
+                    "order": 100007,
                     "title": "Completeness",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1790,7 +1669,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 8,
+                    "order": 100008,
                     "title": "Uniqueness",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1817,7 +1696,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 9,
+                    "order": 100009,
                     "title": "Validity",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1844,7 +1723,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 10,
+                    "order": 100010,
                     "title": "Consistency",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1871,7 +1750,7 @@
                     "type": "float",
                     "displayAs": "number",
                     "visible": true,
-                    "order": 11,
+                    "order": 100011,
                     "title": "Geo validity",
                     "allowSearch": false,
                     "alignContent": "right",
@@ -1898,7 +1777,7 @@
                     "type": "boolean",
                     "displayAs": "boolean",
                     "visible": true,
-                    "order": 12,
+                    "order": 100012,
                     "title": "Reconciles",
                     "allowSearch": false,
                     "alignContent": "left",
@@ -1910,6 +1789,12 @@
                   }
                 ]
               },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
               "frame": {
                 "showTitle": true,
                 "title": "Data Quality by Batch (KPI-018..020)",
