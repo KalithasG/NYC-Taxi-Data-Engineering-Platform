@@ -1,0 +1,17 @@
+# The AI/BI executive dashboard. Declared here rather than clicked together in the UI, so the
+# panels are reviewable as a diff and redeploy reproducibly — the same reason the job is.
+#
+# The dashboard JSON is generated from the queries in src/dashboards/queries/, which stay the
+# source of truth for the SQL.
+resources:
+  dashboards:
+    nyc_taxi_executive:
+      display_name: NYC Taxi Operations
+      # Relative to this file's directory, exactly like the job task paths.
+      file_path: ../src/dashboards/nyc_taxi_executive.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      # Datasets are written unqualified (`gold.trip_performance`, `silver_trips`) so one
+      # dashboard definition serves dev and prod — the catalog comes from the target's variable
+      # rather than being baked into the JSON.
+      dataset_catalog: ${var.catalog}
+      dataset_schema: silver

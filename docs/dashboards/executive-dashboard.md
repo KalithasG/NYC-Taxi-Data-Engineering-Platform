@@ -36,7 +36,29 @@ of this is untested SQL.
 | 5 | Data quality | `05_data_quality.sql` | 018, 019, 020 | Tiles + component-score bar |
 | 6 | Quarantine breakdown | `06_quarantine_breakdown.sql` | — | Bar by rule id |
 
-## Building it in Databricks AI/BI
+## Deploying it
+
+The dashboard is declared in `resources/dashboards.yml` and deploys with the rest of the bundle,
+so the panels are reviewable as a diff instead of clicked together in a UI where nobody can see
+what changed:
+
+```bash
+databricks bundle deploy --target dev --var warehouse_id=<id>
+```
+
+`src/dashboards/nyc_taxi_executive.lvdash.json` is generated from the queries in
+`src/dashboards/queries/`, which stay the source of truth for the SQL. The datasets are written
+unqualified, and `dataset_catalog: ${var.catalog}` in the resource supplies the catalog — so one
+definition serves dev and prod.
+
+**Panel 3 is split into three.** `gold.geographic_metrics` carries NULL duration, distance and
+speed for the `pickup_area` and `dropoff_area` rows, because KPI-010 and KPI-011 are defined as
+`COUNT(DISTINCT id)` and nothing more (contract §8 gives companion metrics to routes only). The
+areas therefore get count-only bar charts and routes get the full table — a single panel across
+all three dimensions would render three empty columns that look like broken data rather than a
+definition.
+
+## Building it by hand in the UI
 
 1. **SQL editor → paste a query → Save** as `nyc_taxi_<panel>`.
 2. **Dashboards → Create dashboard →** add a visualisation per saved query.

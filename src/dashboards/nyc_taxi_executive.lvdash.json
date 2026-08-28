@@ -1,0 +1,1093 @@
+{
+  "datasets": [
+    {
+      "name": "exec_tiles",
+      "displayName": "Executive tiles (KPI-001..006, 009, 018)",
+      "queryLines": [
+        "SELECT\n",
+        "    (SELECT SUM(kpi_001_total_trips) FROM gold.trip_performance)          AS kpi_001_total_trips,\n",
+        "\n",
+        "    (SELECT ROUND(AVG(trip_duration) / 60.0, 1) FROM silver_trips)        AS kpi_002_avg_duration_min,\n",
+        "    (SELECT ROUND(percentile_cont(0.50) WITHIN GROUP (ORDER BY trip_duration) / 60.0, 1)\n",
+        "       FROM silver_trips)                                                 AS kpi_003_median_duration_min,\n",
+        "    (SELECT ROUND(percentile_cont(0.90) WITHIN GROUP (ORDER BY trip_duration) / 60.0, 1)\n",
+        "       FROM silver_trips)                                                 AS kpi_004_p90_duration_min,\n",
+        "\n",
+        "    (SELECT ROUND(AVG(estimated_distance_km), 2) FROM silver_trips)       AS kpi_005_avg_estimated_distance_km,\n",
+        "    (SELECT ROUND(AVG(estimated_speed_kmh), 1) FROM silver_trips)         AS kpi_006_avg_estimated_speed_kmh,\n",
+        "\n",
+        "    (SELECT kpi_009_peak_hour FROM gold.demand_metrics\n",
+        "      ORDER BY kpi_009_peak_hour_trip_count DESC, pickup_date LIMIT 1)    AS kpi_009_peak_hour,\n",
+        "    (SELECT ROUND(100.0 * SUM(valid_records) / NULLIF(SUM(total_records), 0), 2)\n",
+        "       FROM gold.data_quality)                                            AS kpi_018_data_quality_pct"
+      ]
+    },
+    {
+      "name": "demand",
+      "displayName": "Demand trend (KPI-007, KPI-008)",
+      "queryLines": [
+        "SELECT\n",
+        "    pickup_date,\n",
+        "    pickup_hour,\n",
+        "    SUM(kpi_008_trips_per_hour) AS trips_per_hour,\n",
+        "    MAX(kpi_007_trips_per_day)  AS trips_per_day\n",
+        "FROM gold.demand_metrics\n",
+        "GROUP BY pickup_date, pickup_hour\n",
+        "ORDER BY pickup_date, pickup_hour"
+      ]
+    },
+    {
+      "name": "geo_pickup",
+      "displayName": "Top pickup areas (KPI-010)",
+      "queryLines": [
+        "SELECT * FROM (\n",
+        "SELECT\n",
+        "    dimension,\n",
+        "    area_key,\n",
+        "    trip_count,\n",
+        "    ROUND(avg_duration_seconds    / 60.0, 1) AS avg_duration_min,\n",
+        "    ROUND(median_duration_seconds / 60.0, 1) AS median_duration_min,\n",
+        "    ROUND(p90_duration_seconds    / 60.0, 1) AS p90_duration_min,\n",
+        "    ROUND(avg_estimated_distance_km, 2)      AS avg_estimated_distance_km,\n",
+        "    ROUND(avg_estimated_speed_kmh, 1)        AS avg_estimated_speed_kmh,\n",
+        "    rank_in_dimension\n",
+        "FROM gold.geographic_metrics\n",
+        "WHERE rank_in_dimension <= 10\n",
+        "ORDER BY dimension, rank_in_dimension\n",
+        ") WHERE dimension = 'pickup_area'"
+      ]
+    },
+    {
+      "name": "geo_dropoff",
+      "displayName": "Top drop-off areas (KPI-011)",
+      "queryLines": [
+        "SELECT * FROM (\n",
+        "SELECT\n",
+        "    dimension,\n",
+        "    area_key,\n",
+        "    trip_count,\n",
+        "    ROUND(avg_duration_seconds    / 60.0, 1) AS avg_duration_min,\n",
+        "    ROUND(median_duration_seconds / 60.0, 1) AS median_duration_min,\n",
+        "    ROUND(p90_duration_seconds    / 60.0, 1) AS p90_duration_min,\n",
+        "    ROUND(avg_estimated_distance_km, 2)      AS avg_estimated_distance_km,\n",
+        "    ROUND(avg_estimated_speed_kmh, 1)        AS avg_estimated_speed_kmh,\n",
+        "    rank_in_dimension\n",
+        "FROM gold.geographic_metrics\n",
+        "WHERE rank_in_dimension <= 10\n",
+        "ORDER BY dimension, rank_in_dimension\n",
+        ") WHERE dimension = 'dropoff_area'"
+      ]
+    },
+    {
+      "name": "geo_route",
+      "displayName": "Top routes (KPI-012)",
+      "queryLines": [
+        "SELECT * FROM (\n",
+        "SELECT\n",
+        "    dimension,\n",
+        "    area_key,\n",
+        "    trip_count,\n",
+        "    ROUND(avg_duration_seconds    / 60.0, 1) AS avg_duration_min,\n",
+        "    ROUND(median_duration_seconds / 60.0, 1) AS median_duration_min,\n",
+        "    ROUND(p90_duration_seconds    / 60.0, 1) AS p90_duration_min,\n",
+        "    ROUND(avg_estimated_distance_km, 2)      AS avg_estimated_distance_km,\n",
+        "    ROUND(avg_estimated_speed_kmh, 1)        AS avg_estimated_speed_kmh,\n",
+        "    rank_in_dimension\n",
+        "FROM gold.geographic_metrics\n",
+        "WHERE rank_in_dimension <= 10\n",
+        "ORDER BY dimension, rank_in_dimension\n",
+        ") WHERE dimension = 'route'"
+      ]
+    },
+    {
+      "name": "vendor",
+      "displayName": "Vendor comparison (KPI-013..015)",
+      "queryLines": [
+        "SELECT\n",
+        "    vendor_id,\n",
+        "    vendor_trips,\n",
+        "    ROUND(kpi_013_vendor_trip_share_pct, 2)      AS trip_share_pct,\n",
+        "    ROUND(kpi_014_avg_duration_seconds / 60.0, 1) AS avg_duration_min,\n",
+        "    ROUND(median_duration_seconds      / 60.0, 1) AS median_duration_min,\n",
+        "    ROUND(kpi_015_p90_duration_seconds / 60.0, 1) AS p90_duration_min,\n",
+        "    ROUND(avg_estimated_distance_km, 2)           AS avg_estimated_distance_km,\n",
+        "    ROUND(avg_estimated_speed_kmh, 1)             AS avg_estimated_speed_kmh\n",
+        "FROM gold.vendor_performance\n",
+        "ORDER BY vendor_id"
+      ]
+    },
+    {
+      "name": "dq",
+      "displayName": "Data quality (KPI-018..020)",
+      "queryLines": [
+        "SELECT\n",
+        "    source_hash,\n",
+        "    source_file,\n",
+        "    total_records,\n",
+        "    valid_records,\n",
+        "    quarantined_records,\n",
+        "    duplicate_records,\n",
+        "    ROUND(kpi_018_data_quality_score_pct, 3)  AS kpi_018_quality_score_pct,\n",
+        "    ROUND(kpi_019_invalid_record_rate_pct, 3) AS kpi_019_invalid_rate_pct,\n",
+        "    ROUND(kpi_020_duplicate_rate_pct, 3)      AS kpi_020_duplicate_rate_pct,\n",
+        "    ROUND(completeness_score_pct, 3)          AS completeness_pct,\n",
+        "    ROUND(uniqueness_score_pct, 3)            AS uniqueness_pct,\n",
+        "    ROUND(validity_score_pct, 3)              AS validity_pct,\n",
+        "    ROUND(consistency_score_pct, 3)           AS consistency_pct,\n",
+        "    ROUND(geographic_validity_score_pct, 3)   AS geographic_validity_pct,\n",
+        "    reconciles\n",
+        "FROM gold.data_quality\n",
+        "ORDER BY source_hash"
+      ]
+    },
+    {
+      "name": "quarantine",
+      "displayName": "Quarantine breakdown (DQ-015)",
+      "queryLines": [
+        "SELECT\n",
+        "    rule_id,\n",
+        "    quarantine_reason,\n",
+        "    COUNT(*) AS rejected_rows,\n",
+        "    ROUND(100.0 * COUNT(*) / (SELECT SUM(total_records) FROM gold.data_quality), 4)\n",
+        "        AS pct_of_batch\n",
+        "FROM silver_trips_quarantine\n",
+        "GROUP BY rule_id, quarantine_reason\n",
+        "ORDER BY rejected_rows DESC"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "operations",
+      "displayName": "NYC Taxi Operations",
+      "layout": [
+        {
+          "widget": {
+            "name": "w_title",
+            "textbox_spec": "# NYC Taxi Operations\n\nBuilt from the Gold marts. Distance and speed are **estimated** \u2014 geodesic straight-line, never road distance (BDD-07). KPI-016 and KPI-017 have no tiles because their thresholds are still unapproved."
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "w_trips",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_001_total_trips",
+                      "expression": "`kpi_001_total_trips`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_001_total_trips",
+                  "displayName": "Total Trips"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_avg_dur",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_002_avg_duration_min",
+                      "expression": "`kpi_002_avg_duration_min`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_002_avg_duration_min",
+                  "displayName": "Avg Duration (min)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_med_dur",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_003_median_duration_min",
+                      "expression": "`kpi_003_median_duration_min`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_003_median_duration_min",
+                  "displayName": "Median Duration (min)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_p90_dur",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_004_p90_duration_min",
+                      "expression": "`kpi_004_p90_duration_min`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_004_p90_duration_min",
+                  "displayName": "P90 Duration (min)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_est_dist",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_005_avg_estimated_distance_km",
+                      "expression": "`kpi_005_avg_estimated_distance_km`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_005_avg_estimated_distance_km",
+                  "displayName": "Avg Estimated Distance (km)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_est_speed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_006_avg_estimated_speed_kmh",
+                      "expression": "`kpi_006_avg_estimated_speed_kmh`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_006_avg_estimated_speed_kmh",
+                  "displayName": "Avg Estimated Speed (km/h)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 5,
+            "y": 2,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_peak",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_009_peak_hour",
+                      "expression": "`kpi_009_peak_hour`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_009_peak_hour",
+                  "displayName": "Peak Hour"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_dq",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_018_data_quality_pct",
+                      "expression": "`kpi_018_data_quality_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_018_data_quality_pct",
+                  "displayName": "Data Quality Score (%)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 5,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_quarantine",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "quarantine",
+                  "fields": [
+                    {
+                      "name": "rule_id",
+                      "expression": "`rule_id`"
+                    },
+                    {
+                      "name": "quarantine_reason",
+                      "expression": "`quarantine_reason`"
+                    },
+                    {
+                      "name": "rejected_rows",
+                      "expression": "`rejected_rows`"
+                    },
+                    {
+                      "name": "pct_of_batch",
+                      "expression": "`pct_of_batch`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "rule_id",
+                    "displayName": "Rule"
+                  },
+                  {
+                    "fieldName": "quarantine_reason",
+                    "displayName": "Reason"
+                  },
+                  {
+                    "fieldName": "rejected_rows",
+                    "displayName": "Rejected rows"
+                  },
+                  {
+                    "fieldName": "pct_of_batch",
+                    "displayName": "% of batch"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 5,
+            "width": 4,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_daily",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "demand",
+                  "fields": [
+                    {
+                      "name": "pickup_date",
+                      "expression": "`pickup_date`"
+                    },
+                    {
+                      "name": "daily_trips",
+                      "expression": "MAX(`trips_per_day`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "pickup_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "fieldName": "daily_trips",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trips per day"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_hourly",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "demand",
+                  "fields": [
+                    {
+                      "name": "pickup_hour",
+                      "expression": "`pickup_hour`"
+                    },
+                    {
+                      "name": "hourly_trips",
+                      "expression": "SUM(`trips_per_hour`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "pickup_hour",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Hour of day"
+                },
+                "y": {
+                  "fieldName": "hourly_trips",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trips"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 14,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_vendor_share",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vendor",
+                  "fields": [
+                    {
+                      "name": "vendor_id",
+                      "expression": "`vendor_id`"
+                    },
+                    {
+                      "name": "trip_share_pct",
+                      "expression": "`trip_share_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "vendor_id",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Vendor"
+                },
+                "y": {
+                  "fieldName": "trip_share_pct",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trip share (%)"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 14,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_vendor",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "vendor",
+                  "fields": [
+                    {
+                      "name": "vendor_id",
+                      "expression": "`vendor_id`"
+                    },
+                    {
+                      "name": "vendor_trips",
+                      "expression": "`vendor_trips`"
+                    },
+                    {
+                      "name": "trip_share_pct",
+                      "expression": "`trip_share_pct`"
+                    },
+                    {
+                      "name": "avg_duration_min",
+                      "expression": "`avg_duration_min`"
+                    },
+                    {
+                      "name": "median_duration_min",
+                      "expression": "`median_duration_min`"
+                    },
+                    {
+                      "name": "p90_duration_min",
+                      "expression": "`p90_duration_min`"
+                    },
+                    {
+                      "name": "avg_estimated_distance_km",
+                      "expression": "`avg_estimated_distance_km`"
+                    },
+                    {
+                      "name": "avg_estimated_speed_kmh",
+                      "expression": "`avg_estimated_speed_kmh`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "vendor_id",
+                    "displayName": "Vendor"
+                  },
+                  {
+                    "fieldName": "vendor_trips",
+                    "displayName": "Trips"
+                  },
+                  {
+                    "fieldName": "trip_share_pct",
+                    "displayName": "Share (%)"
+                  },
+                  {
+                    "fieldName": "avg_duration_min",
+                    "displayName": "Avg (min)"
+                  },
+                  {
+                    "fieldName": "median_duration_min",
+                    "displayName": "P50 (min)"
+                  },
+                  {
+                    "fieldName": "p90_duration_min",
+                    "displayName": "P90 (min)"
+                  },
+                  {
+                    "fieldName": "avg_estimated_distance_km",
+                    "displayName": "Avg Est. Distance (km)"
+                  },
+                  {
+                    "fieldName": "avg_estimated_speed_kmh",
+                    "displayName": "Avg Est. Speed (km/h)"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 20,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_pickup",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "geo_pickup",
+                  "fields": [
+                    {
+                      "name": "area_key",
+                      "expression": "`area_key`"
+                    },
+                    {
+                      "name": "trip_count",
+                      "expression": "`trip_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "area_key",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Pickup area"
+                },
+                "y": {
+                  "fieldName": "trip_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trips"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 24,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_dropoff",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "geo_dropoff",
+                  "fields": [
+                    {
+                      "name": "area_key",
+                      "expression": "`area_key`"
+                    },
+                    {
+                      "name": "trip_count",
+                      "expression": "`trip_count`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "area_key",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "displayName": "Drop-off area"
+                },
+                "y": {
+                  "fieldName": "trip_count",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "Trips"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 24,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "w_routes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "geo_route",
+                  "fields": [
+                    {
+                      "name": "area_key",
+                      "expression": "`area_key`"
+                    },
+                    {
+                      "name": "trip_count",
+                      "expression": "`trip_count`"
+                    },
+                    {
+                      "name": "avg_duration_min",
+                      "expression": "`avg_duration_min`"
+                    },
+                    {
+                      "name": "median_duration_min",
+                      "expression": "`median_duration_min`"
+                    },
+                    {
+                      "name": "p90_duration_min",
+                      "expression": "`p90_duration_min`"
+                    },
+                    {
+                      "name": "avg_estimated_distance_km",
+                      "expression": "`avg_estimated_distance_km`"
+                    },
+                    {
+                      "name": "avg_estimated_speed_kmh",
+                      "expression": "`avg_estimated_speed_kmh`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "area_key",
+                    "displayName": "Route"
+                  },
+                  {
+                    "fieldName": "trip_count",
+                    "displayName": "Trips"
+                  },
+                  {
+                    "fieldName": "avg_duration_min",
+                    "displayName": "Avg (min)"
+                  },
+                  {
+                    "fieldName": "median_duration_min",
+                    "displayName": "P50 (min)"
+                  },
+                  {
+                    "fieldName": "p90_duration_min",
+                    "displayName": "P90 (min)"
+                  },
+                  {
+                    "fieldName": "avg_estimated_distance_km",
+                    "displayName": "Avg Est. Distance (km)"
+                  },
+                  {
+                    "fieldName": "avg_estimated_speed_kmh",
+                    "displayName": "Avg Est. Speed (km/h)"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 30,
+            "width": 6,
+            "height": 4
+          }
+        },
+        {
+          "widget": {
+            "name": "w_dq_detail",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "dq",
+                  "fields": [
+                    {
+                      "name": "source_file",
+                      "expression": "`source_file`"
+                    },
+                    {
+                      "name": "total_records",
+                      "expression": "`total_records`"
+                    },
+                    {
+                      "name": "valid_records",
+                      "expression": "`valid_records`"
+                    },
+                    {
+                      "name": "quarantined_records",
+                      "expression": "`quarantined_records`"
+                    },
+                    {
+                      "name": "kpi_018_quality_score_pct",
+                      "expression": "`kpi_018_quality_score_pct`"
+                    },
+                    {
+                      "name": "kpi_019_invalid_rate_pct",
+                      "expression": "`kpi_019_invalid_rate_pct`"
+                    },
+                    {
+                      "name": "kpi_020_duplicate_rate_pct",
+                      "expression": "`kpi_020_duplicate_rate_pct`"
+                    },
+                    {
+                      "name": "completeness_pct",
+                      "expression": "`completeness_pct`"
+                    },
+                    {
+                      "name": "uniqueness_pct",
+                      "expression": "`uniqueness_pct`"
+                    },
+                    {
+                      "name": "validity_pct",
+                      "expression": "`validity_pct`"
+                    },
+                    {
+                      "name": "consistency_pct",
+                      "expression": "`consistency_pct`"
+                    },
+                    {
+                      "name": "geographic_validity_pct",
+                      "expression": "`geographic_validity_pct`"
+                    },
+                    {
+                      "name": "reconciles",
+                      "expression": "`reconciles`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "source_file",
+                    "displayName": "Source"
+                  },
+                  {
+                    "fieldName": "total_records",
+                    "displayName": "Total"
+                  },
+                  {
+                    "fieldName": "valid_records",
+                    "displayName": "Valid"
+                  },
+                  {
+                    "fieldName": "quarantined_records",
+                    "displayName": "Quarantined"
+                  },
+                  {
+                    "fieldName": "kpi_018_quality_score_pct",
+                    "displayName": "Quality (%)"
+                  },
+                  {
+                    "fieldName": "kpi_019_invalid_rate_pct",
+                    "displayName": "Invalid (%)"
+                  },
+                  {
+                    "fieldName": "kpi_020_duplicate_rate_pct",
+                    "displayName": "Duplicate (%)"
+                  },
+                  {
+                    "fieldName": "completeness_pct",
+                    "displayName": "Completeness"
+                  },
+                  {
+                    "fieldName": "uniqueness_pct",
+                    "displayName": "Uniqueness"
+                  },
+                  {
+                    "fieldName": "validity_pct",
+                    "displayName": "Validity"
+                  },
+                  {
+                    "fieldName": "consistency_pct",
+                    "displayName": "Consistency"
+                  },
+                  {
+                    "fieldName": "geographic_validity_pct",
+                    "displayName": "Geo validity"
+                  },
+                  {
+                    "fieldName": "reconciles",
+                    "displayName": "Reconciles"
+                  }
+                ]
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 6,
+            "height": 4
+          }
+        }
+      ]
+    }
+  ]
+}
