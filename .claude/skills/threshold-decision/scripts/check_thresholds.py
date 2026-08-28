@@ -59,7 +59,11 @@ PLACEHOLDER_APPROVERS = re.compile(
 
 
 def git_show(ref_path, cwd):
-    r = subprocess.run(["git", "show", ref_path], cwd=cwd, capture_output=True, text=True)
+    # encoding is explicit: without it Python decodes git's bytes with the locale codec
+    # (cp1252 on Windows) while the working tree is read as UTF-8, so every field containing
+    # a non-ASCII character looks changed and the guard reports edits nobody made.
+    r = subprocess.run(["git", "show", ref_path], cwd=cwd, capture_output=True,
+                       text=True, encoding="utf-8")
     return r.stdout if r.returncode == 0 else None
 
 

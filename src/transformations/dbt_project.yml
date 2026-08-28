@@ -27,10 +27,10 @@ vars:
   catalog: "nyc_taxi"
   schema_name: "nyc_taxi_dev"
   # every threshold defaults to the sentinel; run.py overrides with approved values only
-  long_trip_seconds: "TBD_PENDING_PROFILING"
-  low_speed_kmh: "TBD_PENDING_PROFILING"
-  extreme_duration_seconds: "TBD_PENDING_PROFILING"
-  extreme_distance_km: "TBD_PENDING_PROFILING"
+  long_trip_seconds: 3600
+  low_speed_kmh: 5
+  extreme_duration_seconds: 86400
+  extreme_distance_km: 100
   vendor_domain: "TBD_PENDING_PROFILING"
-  passenger_count_domain: "TBD_PENDING_PROFILING"
-  nyc_bounds: "TBD_PENDING_PROFILING"
+  passenger_count_domain: {min: 1, max: 6}
+  nyc_bounds: {lat_min: 40.4, lat_max: 41.0, lon_min: -74.3, lon_max: -73.7}

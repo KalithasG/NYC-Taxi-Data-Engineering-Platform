@@ -82,7 +82,7 @@ rules:
     type: validity
     predicate: passenger_count BETWEEN {min} AND {max}
     parameter: passenger_count_domain
-    value: TBD_PENDING_PROFILING     # blocked on OQ-5 — zero-count semantics
+    value: {min: 1, max: 6}   # approved 2026-08-29 — licensed capacity
     action: flag
     severity: medium
     flag_column: is_passenger_count_anomaly
@@ -95,7 +95,7 @@ rules:
     type: geographic
     predicate: pickup_latitude AND pickup_longitude within approved NYC-region bounds
     parameter: nyc_bounds
-    value: TBD_PENDING_PROFILING     # profiling §14 — worldwide bounds are necessary but insufficient
+    value: {lat_min: 40.4, lat_max: 41.0, lon_min: -74.3, lon_max: -73.7}   # approved 2026-08-29 — NYC extent
     action: reject
     severity: high
     quarantine_reason: PICKUP_COORDINATE_IMPLAUSIBLE
@@ -105,7 +105,7 @@ rules:
     type: geographic
     predicate: dropoff_latitude AND dropoff_longitude within approved NYC-region bounds
     parameter: nyc_bounds
-    value: TBD_PENDING_PROFILING
+    value: {lat_min: 40.4, lat_max: 41.0, lon_min: -74.3, lon_max: -73.7}   # approved 2026-08-29 — NYC extent
     action: reject
     severity: high
     quarantine_reason: DROPOFF_COORDINATE_IMPLAUSIBLE

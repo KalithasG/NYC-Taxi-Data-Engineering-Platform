@@ -18,6 +18,13 @@
         "\n",
         "    (SELECT kpi_009_peak_hour FROM gold.demand_metrics\n",
         "      ORDER BY kpi_009_peak_hour_trip_count DESC, pickup_date LIMIT 1)    AS kpi_009_peak_hour,\n",
+        "    (SELECT ROUND(SUM(kpi_016_long_trip_rate_pct * kpi_001_total_trips)\n",
+        "                  / NULLIF(SUM(kpi_001_total_trips), 0), 2)\n",
+        "       FROM gold.trip_performance)                                        AS kpi_016_long_trip_rate_pct,\n",
+        "    (SELECT ROUND(SUM(kpi_017_low_speed_rate_pct * kpi_001_total_trips)\n",
+        "                  / NULLIF(SUM(kpi_001_total_trips), 0), 2)\n",
+        "       FROM gold.trip_performance)                                        AS kpi_017_low_speed_rate_pct,\n",
+        "\n",
         "    (SELECT ROUND(100.0 * SUM(valid_records) / NULLIF(SUM(total_records), 0), 2)\n",
         "       FROM gold.data_quality)                                            AS kpi_018_data_quality_pct"
       ]
@@ -139,6 +146,21 @@
         "FROM gold.data_quality\n",
         "ORDER BY source_hash"
       ]
+    },
+    {
+      "name": "quarantine",
+      "displayName": "Quarantine breakdown (DQ-015)",
+      "queryLines": [
+        "SELECT\n",
+        "    rule_id,\n",
+        "    quarantine_reason,\n",
+        "    COUNT(*) AS rejected_rows,\n",
+        "    ROUND(100.0 * COUNT(*) / (SELECT SUM(total_records) FROM gold.data_quality), 4)\n",
+        "        AS pct_of_batch\n",
+        "FROM silver_trips_quarantine\n",
+        "GROUP BY rule_id, quarantine_reason\n",
+        "ORDER BY rejected_rows DESC"
+      ]
     }
   ],
   "pages": [
@@ -149,7 +171,7 @@
         {
           "widget": {
             "name": "w_title",
-            "textbox_spec": "# NYC Taxi Operations\n\nBuilt from the Gold marts. Distance and speed are **estimated** \u2014 geodesic straight-line, never road distance (BDD-07). KPI-016 and KPI-017 have no tiles because their thresholds are still unapproved."
+            "textbox_spec": "# NYC Taxi Operations\n\nBuilt from the Gold marts. Distance and speed are **estimated** \u2014 geodesic straight-line, never road distance (BDD-07). KPI-016 and KPI-017 have no tiles because All 20 KPIs are live: the six thresholds were approved on 2026-08-29 from profiling evidence (contract v2.0)."
           },
           "position": {
             "x": 0,
@@ -412,6 +434,90 @@
         },
         {
           "widget": {
+            "name": "w_long_trip",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_016_long_trip_rate_pct",
+                      "expression": "`kpi_016_long_trip_rate_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_016_long_trip_rate_pct",
+                  "displayName": "Long Trip Rate (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Long Trip Rate (%)",
+                "showDescription": true,
+                "description": "KPI-016 \u00b7 trips over 3,600s (60 min), approved 2026-08-29"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_low_speed",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "exec_tiles",
+                  "fields": [
+                    {
+                      "name": "kpi_017_low_speed_rate_pct",
+                      "expression": "`kpi_017_low_speed_rate_pct`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "kpi_017_low_speed_rate_pct",
+                  "displayName": "Low-Speed Trip Rate (%)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Low-Speed Trip Rate (%)",
+                "showDescription": true,
+                "description": "KPI-017 \u00b7 under 5 km/h. An anomaly-candidate rate, NOT a congestion rate - the speed is geodesic and cannot distinguish the cause."
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 8,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
             "name": "w_peak",
             "queries": [
               {
@@ -446,7 +552,7 @@
             }
           },
           "position": {
-            "x": 0,
+            "x": 4,
             "y": 8,
             "width": 2,
             "height": 3
@@ -488,8 +594,8 @@
             }
           },
           "position": {
-            "x": 2,
-            "y": 8,
+            "x": 0,
+            "y": 11,
             "width": 2,
             "height": 3
           }
@@ -525,13 +631,179 @@
                 "showTitle": true,
                 "title": "Quarantined Records",
                 "showDescription": true,
-                "description": "Rows rejected to silver_trips_quarantine. Zero means nothing was rejected, not that the rules did not run."
+                "description": "Rejected to silver_trips_quarantine, never deleted. total = valid + quarantined still holds."
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 11,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "w_quarantine",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "quarantine",
+                  "fields": [
+                    {
+                      "name": "rule_id",
+                      "expression": "`rule_id`"
+                    },
+                    {
+                      "name": "quarantine_reason",
+                      "expression": "`quarantine_reason`"
+                    },
+                    {
+                      "name": "rejected_rows",
+                      "expression": "`rejected_rows`"
+                    },
+                    {
+                      "name": "pct_of_batch",
+                      "expression": "`pct_of_batch`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "rule_id",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100000,
+                    "title": "Rule",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Rule"
+                  },
+                  {
+                    "fieldName": "quarantine_reason",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 100001,
+                    "title": "Reason",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Reason"
+                  },
+                  {
+                    "fieldName": "rejected_rows",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "integer",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100002,
+                    "title": "Rejected rows",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "Rejected rows"
+                  },
+                  {
+                    "fieldName": "pct_of_batch",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 100003,
+                    "title": "% of batch",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "displayName": "% of batch"
+                  }
+                ]
+              },
+              "invisibleColumns": [],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Quarantine by Rule",
+                "showDescription": true,
+                "description": "Every rejected row appears here under the rule that rejected it."
               }
             }
           },
           "position": {
             "x": 4,
-            "y": 8,
+            "y": 11,
             "width": 2,
             "height": 3
           }
@@ -587,7 +859,7 @@
           },
           "position": {
             "x": 0,
-            "y": 11,
+            "y": 14,
             "width": 6,
             "height": 6
           }
@@ -643,7 +915,7 @@
           },
           "position": {
             "x": 0,
-            "y": 17,
+            "y": 20,
             "width": 3,
             "height": 6
           }
@@ -699,7 +971,7 @@
           },
           "position": {
             "x": 3,
-            "y": 17,
+            "y": 20,
             "width": 3,
             "height": 6
           }
@@ -989,7 +1261,7 @@
           },
           "position": {
             "x": 0,
-            "y": 23,
+            "y": 26,
             "width": 6,
             "height": 4
           }
@@ -1045,7 +1317,7 @@
           },
           "position": {
             "x": 0,
-            "y": 27,
+            "y": 30,
             "width": 3,
             "height": 6
           }
@@ -1101,7 +1373,7 @@
           },
           "position": {
             "x": 3,
-            "y": 27,
+            "y": 30,
             "width": 3,
             "height": 6
           }
@@ -1360,7 +1632,7 @@
           },
           "position": {
             "x": 0,
-            "y": 33,
+            "y": 36,
             "width": 6,
             "height": 4
           }
@@ -1805,7 +2077,7 @@
           },
           "position": {
             "x": 0,
-            "y": 37,
+            "y": 40,
             "width": 6,
             "height": 4
           }

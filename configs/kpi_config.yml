@@ -14,18 +14,18 @@
 # THRESHOLD GOVERNANCE (contract §18): any value of TBD_PENDING_PROFILING is a HARD BUILD STOP.
 # The pipeline must fail rather than substitute a default. Verified by BDD-05.
 version: 1.0
-contract_version: 1.2
+contract_version: 2.0
 kpi_count: 20
 default_filter: is_valid_trip = true
 default_grain: reporting period
 
 thresholds:
-  long_trip_seconds:        TBD_PENDING_PROFILING   # KPI-016
-  low_speed_kmh:            TBD_PENDING_PROFILING   # KPI-017
-  extreme_duration_seconds: TBD_PENDING_PROFILING
-  extreme_distance_km:      TBD_PENDING_PROFILING
-  geographic_outlier_bounds: TBD_PENDING_PROFILING
-  passenger_count_anomaly:  TBD_PENDING_PROFILING
+  long_trip_seconds:        3600   # KPI-016
+  low_speed_kmh:            5   # KPI-017
+  extreme_duration_seconds: 86400
+  extreme_distance_km:      100
+  geographic_outlier_bounds: {lat_min: 40.4, lat_max: 41.0, lon_min: -74.3, lon_max: -73.7}
+  passenger_count_anomaly:  {min_valid: 1, max_valid: 6}
 
 time_of_day_buckets:        # analytical categories, not business facts (profiling §12)
   morning:   "05:00-11:59"

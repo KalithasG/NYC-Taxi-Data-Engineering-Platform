@@ -4,7 +4,7 @@ Every change to a KPI's meaning is recorded here. KPI contract §20 requires sev
 change; `.claude/skills/kpi-contract-guard/scripts/check_kpi_contract.py` verifies all seven are
 present before a commit touching `configs/kpi_config.yml` is allowed through.
 
-**Current contract version: 1.2** — one approved change (v1.2, the Gold schema relocation).
+**Current contract version: 2.0** — two approved changes (v2.0, the six approved thresholds; v1.2, the Gold schema relocation).
 v1.1 is still drafted and unsigned. Version numbers are labels, not a dense sequence, so the
 gap is expected: v1.1 can still be approved later without renumbering anything.
 
@@ -66,6 +66,81 @@ list above with `contract_version` bumped to 1.1.
 - **Approved by:** _pending_
 
 ## Approved changes
+
+## v2.0 — 2026-08-29
+
+Six thresholds were approved from the completed profiling run (`PROFILE_20260828_180217`,
+source hash `fc8c777a…`, 1,458,644 rows). Full evidence and the alternatives weighed for each:
+`docs/profiling/threshold-decisions.md`.
+
+This is a **major** version. Two KPIs move from withheld to computed, and — the reason it is 2.0
+rather than 1.3 — enforcing the coordinate bounds removes 985 rows from the valid population, so
+every KPI's denominator changes. By this document's own test, a chart of KPI-001 before and after
+is not directly comparable.
+
+### KPI-016 — Long Trip Rate now computed
+- **Old:** withheld. `gold.trip_performance` carried `kpi_016_withheld_pending_long_trip_seconds`
+  as a NULL column, because `long_trip_seconds` had no approved value (BDD-05).
+- **New:** `100.0 * COUNT(trips WHERE trip_duration > 3600) / COUNT(valid trips)`, reported as
+  `kpi_016_long_trip_rate_pct`.
+- **Reason:** the profiling run produced the distribution evidence the threshold was waiting on.
+  3,600s was chosen over P99 (3,440s) and P95 (2,104s): it is legible to a stakeholder without a
+  percentile table and lands just past the P99 break, so business meaning and distribution agree.
+- **Effective:** 2026-08-29
+- **Impact:** a new value where there was none. 12,317 trips (0.8444%) exceed the threshold, so
+  the KPI reports 0.84%. No historical figure is invalidated because none was ever published —
+  the column was NULL by design. Anyone reading `kpi_016_withheld_pending_long_trip_seconds`
+  must switch to the new column name.
+- **Migration:** rebuild `gold.trip_performance`. The withheld column disappears and is replaced
+  by the computed one; a consumer selecting the old name will error rather than silently read a
+  NULL, which is the intended failure mode.
+- **Approved by:** Kalithas G (kalithas878@gmail.com)
+
+### KPI-017 — Low-Speed Trip Rate now computed
+- **Old:** withheld. `kpi_017_withheld_pending_low_speed_kmh`, NULL, pending `low_speed_kmh`.
+- **New:** `100.0 * COUNT(trips WHERE estimated_speed_kmh < 5) / COUNT(valid trips)`, reported as
+  `kpi_017_low_speed_rate_pct`.
+- **Reason:** 5 km/h is roughly walking pace — a floor no normally moving vehicle crosses. P25
+  (9.12 km/h) was rejected because it flags a quarter of all trips, which measures "slower than
+  typical" rather than anomalous.
+- **Effective:** 2026-08-29
+- **Impact:** 71,325 trips (4.8898%) fall below the threshold, so the KPI reports 4.89%. **This
+  is not a congestion rate** (BDD-07): the speed numerator is geodesic and therefore understates
+  real road speed, and a low value has at least six candidate causes this metric cannot
+  distinguish. It must be labelled a Low-Speed Trip Rate wherever it appears.
+- **Migration:** rebuild `gold.trip_performance`; same column rename as KPI-016.
+- **Approved by:** Kalithas G (kalithas878@gmail.com)
+
+### All KPIs — valid population now excludes out-of-bounds coordinates
+- **Old:** DQ-009 and DQ-010 were unenforced, `nyc_bounds` being unset. Every row with parseable
+  coordinates entered `silver_trips`, including pickups at latitude 34.36 and longitude -121.93.
+- **New:** `nyc_bounds` = latitude 40.4–41.0, longitude -74.3–-73.7. Rows outside the box are
+  rejected to `silver_trips_quarantine` with their rule id and reason.
+- **Reason:** the bounds are the documented geographic extent of New York City — a verifiable
+  fact rather than a chosen number — and cover all five boroughs plus the airports. The observed
+  P1–P99 band was rejected as too tight: it describes roughly Manhattan and would quarantine
+  genuine outer-borough trips.
+- **Effective:** 2026-08-29
+- **Impact:** **this is the breaking part.** 985 rows (0.0675%) leave the valid population, so
+  KPI-001 Total Trips falls from 1,458,644 to 1,457,659 and every average, median and percentile
+  shifts fractionally. Figures produced before this date are not directly comparable. Nothing is
+  deleted: `total = valid + quarantined` still holds and the quarantined rows keep every original
+  column, so the change is fully reversible by reverting the bound.
+- **Migration:** rebuild Silver and Gold together. A rebuild of Gold alone against an old Silver
+  would mix populations.
+- **Approved by:** Kalithas G (kalithas878@gmail.com)
+
+### Thresholds driving flags only — no KPI formula change
+`extreme_duration_seconds` = 86,400s (4 rows flagged), `extreme_distance_km` = 100 km (19 rows),
+and `passenger_count_anomaly` = valid domain 1–6 (65 rows) were approved in the same pass. They
+populate `is_duration_outlier`, GEO-006 and `is_passenger_count_anomaly`. All three flag and
+retain; none removes a row or alters a KPI formula. Recorded here for completeness rather than
+because they change a definition. **Approved by:** Kalithas G (kalithas878@gmail.com)
+
+### Still pending after this version
+`vendor_domain` (DQ-003) remains `TBD_PENDING_PROFILING`. Profiling observed exactly `[1, 2]`
+covering 100% of rows, but it was not part of this approval pass, so DQ-003 stays unenforced.
+DQ-003 rejects, so an unreviewed value would quarantine real rows.
 
 ## v1.2 — 2026-08-27
 

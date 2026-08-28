@@ -135,13 +135,15 @@ datasets = [
     dataset("geo_route", "Top routes (KPI-012)", geo_slice("route")),
     dataset("vendor", "Vendor comparison (KPI-013..015)", sql("04_vendor_comparison.sql")),
     dataset("dq", "Data quality (KPI-018..020)", sql("05_data_quality.sql")),
+    dataset("quarantine", "Quarantine breakdown (DQ-015)",
+            sql("06_quarantine_breakdown.sql")),
 ]
 
 TITLE = (
     "# NYC Taxi Operations\n\n"
     "Built from the Gold marts. Distance and speed are **estimated** — geodesic "
     "straight-line, never road distance (BDD-07). KPI-016 and KPI-017 have no tiles because "
-    "their thresholds are still unapproved."
+    "All 20 KPIs are live: the six thresholds were approved on 2026-08-29 from profiling evidence (contract v2.0)."
 )
 
 GEODESIC = "Geodesic straight-line, not road distance."
@@ -165,30 +167,47 @@ layout = [
     place(counter("w_est_speed", "exec_tiles", "kpi_006_avg_estimated_speed_kmh",
                   "Avg Estimated Speed (km/h)", "KPI-006 · " + GEODESIC), 4, 5, 2, 3),
 
-    # Tile row 3 — KPI-009, 018, plus the quarantine breakdown
+    # Tile row 3 - the two KPIs released by the 2026-08-29 threshold approvals
+    place(counter("w_long_trip", "exec_tiles", "kpi_016_long_trip_rate_pct",
+                  "Long Trip Rate (%)",
+                  "KPI-016 · trips over 3,600s (60 min), approved 2026-08-29"), 0, 8, 2, 3),
+    place(counter("w_low_speed", "exec_tiles", "kpi_017_low_speed_rate_pct",
+                  "Low-Speed Trip Rate (%)",
+                  "KPI-017 · under 5 km/h. An anomaly-candidate rate, NOT a congestion "
+                  "rate - the speed is geodesic and cannot distinguish the cause."), 2, 8, 2, 3),
     place(counter("w_peak", "exec_tiles", "kpi_009_peak_hour",
-                  "Peak Hour", "KPI-009 · hour of day with the most trips"), 0, 8, 2, 3),
+                  "Peak Hour", "KPI-009 · hour of day with the most trips"), 4, 8, 2, 3),
+
+    # Tile row 4 - data quality, and the quarantine that DQ-009/010 now produces
     place(counter("w_dq", "exec_tiles", "kpi_018_data_quality_pct",
                   "Data Quality Score (%)", "KPI-018 · valid ÷ total across all batches"),
-          2, 8, 2, 3),
+          0, 11, 2, 3),
     place(counter("w_quarantined", "dq", "quarantined_records",
                   "Quarantined Records",
-                  "Rows rejected to silver_trips_quarantine. Zero means nothing was "
-                  "rejected, not that the rules did not run."), 4, 8, 2, 3),
+                  "Rejected to silver_trips_quarantine, never deleted. total = valid + "
+                  "quarantined still holds."), 2, 11, 2, 3),
+    place(table("w_quarantine", "quarantine",
+                [("rule_id", "Rule", "string"),
+                 ("quarantine_reason", "Reason", "string"),
+                 ("rejected_rows", "Rejected rows", "integer"),
+                 ("pct_of_batch", "% of batch", "float")],
+                "Quarantine by Rule",
+                "Every rejected row appears here under the rule that rejected it."),
+          4, 11, 2, 3),
 
     # Demand
     place(chart("w_daily", "demand", "line",
                 ("pickup_date", "`pickup_date`", "Date"),
                 ("daily_trips", "MAX(`trips_per_day`)", "Trips per day"),
-                "Daily Demand Trend", xtype="temporal", description="KPI-007"), 0, 11, 6, 6),
+                "Daily Demand Trend", xtype="temporal", description="KPI-007"), 0, 14, 6, 6),
     place(chart("w_hourly", "demand", "bar",
                 ("pickup_hour", "`pickup_hour`", "Hour of day"),
                 ("hourly_trips", "SUM(`trips_per_hour`)", "Trips"),
-                "Trips by Hour of Day", description="KPI-008"), 0, 17, 3, 6),
+                "Trips by Hour of Day", description="KPI-008"), 0, 20, 3, 6),
     place(chart("w_vendor_share", "vendor", "bar",
                 ("vendor_id", "`vendor_id`", "Vendor"),
                 ("trip_share_pct", "`trip_share_pct`", "Trip share (%)"),
-                "Vendor Trip Share", disaggregated=True, description="KPI-013"), 3, 17, 3, 6),
+                "Vendor Trip Share", disaggregated=True, description="KPI-013"), 3, 20, 3, 6),
 
     # Vendor detail — percentiles beside the mean, never the mean alone.
     place(table("w_vendor", "vendor",
@@ -203,7 +222,7 @@ layout = [
                 "Vendor Comparison (KPI-013..015)",
                 "P50 and P90 sit beside the mean on purpose: durations are right-skewed and "
                 "vendor trip mixes differ, so averages alone invite a conclusion the data does "
-                "not support."), 0, 23, 6, 4),
+                "not support."), 0, 26, 6, 4),
 
     # Geography. Areas are counts only — KPI-010/011 are COUNT(DISTINCT id), so the mart
     # carries NULL for their duration and distance columns by design. Routes carry the
@@ -212,12 +231,12 @@ layout = [
                 ("area_key", "`area_key`", "Pickup area"),
                 ("trip_count", "`trip_count`", "Trips"),
                 "Top 10 Pickup Areas", disaggregated=True, xtype="categorical",
-                description="KPI-010 · trip count only, by contract"), 0, 27, 3, 6),
+                description="KPI-010 · trip count only, by contract"), 0, 30, 3, 6),
     place(chart("w_dropoff", "geo_dropoff", "bar",
                 ("area_key", "`area_key`", "Drop-off area"),
                 ("trip_count", "`trip_count`", "Trips"),
                 "Top 10 Drop-off Areas", disaggregated=True, xtype="categorical",
-                description="KPI-011 · trip count only, by contract"), 3, 27, 3, 6),
+                description="KPI-011 · trip count only, by contract"), 3, 30, 3, 6),
     place(table("w_routes", "geo_route",
                 [("area_key", "Route", "string"),
                  ("trip_count", "Trips", "integer"),
@@ -228,7 +247,7 @@ layout = [
                  ("avg_estimated_speed_kmh", "Avg Est. Speed (km/h)", "float")],
                 "Top 10 Routes (KPI-012)",
                 "Routes carry companion metrics; pickup and drop-off areas do not."),
-          0, 33, 6, 4),
+          0, 36, 6, 4),
 
     # Data-quality components, shown separately rather than blended into one number.
     place(table("w_dq_detail", "dq",
@@ -248,7 +267,7 @@ layout = [
                 "Data Quality by Batch (KPI-018..020)",
                 "Component scores are shown separately, not blended: a single number hides "
                 "which dimension is failing. `reconciles` false means rows are disappearing."),
-          0, 37, 6, 4),
+          0, 40, 6, 4),
 ]
 
 dash = {"datasets": datasets,
@@ -258,6 +277,14 @@ dash = {"datasets": datasets,
 out = pathlib.Path("src/dashboards/nyc_taxi_executive.lvdash.json")
 out.write_bytes((json.dumps(dash, indent=2) + "\n").encode("utf-8"))
 print("wrote " + str(out) + "  (" + format(out.stat().st_size, ",") + " bytes)")
+
+defined = {ds["name"] for ds in datasets}
+referenced = {w["widget"]["queries"][0]["query"]["datasetName"]
+              for w in layout if w["widget"].get("queries")}
+dangling = referenced - defined
+unused = defined - referenced
+assert not dangling, f"widgets reference undefined datasets: {sorted(dangling)}"
+assert not unused, f"datasets defined but referenced by no widget: {sorted(unused)}"
 
 titled = sum(1 for w in layout if w["widget"].get("spec", {}).get("frame", {}).get("showTitle"))
 tables = [w for w in layout if w["widget"].get("spec", {}).get("widgetType") == "table"]

@@ -22,5 +22,15 @@ SELECT
       ORDER BY kpi_009_peak_hour_trip_count DESC, pickup_date LIMIT 1)    AS kpi_009_peak_hour,
     -- Recomputed across all batches rather than reading one row: with more than one batch
     -- ingested, picking a single row shows that batch's score and calls it the platform's.
+    -- KPI-016 / KPI-017, approved 2026-08-29 (contract v2.0). Weighted by trip count rather
+    -- than AVG()'d across mart rows: a mean of per-day rates weights a quiet Tuesday equally
+    -- with a busy Friday. The thresholds are NOT restated here - the mart already applied them.
+    (SELECT ROUND(SUM(kpi_016_long_trip_rate_pct * kpi_001_total_trips)
+                  / NULLIF(SUM(kpi_001_total_trips), 0), 2)
+       FROM gold.trip_performance)                                        AS kpi_016_long_trip_rate_pct,
+    (SELECT ROUND(SUM(kpi_017_low_speed_rate_pct * kpi_001_total_trips)
+                  / NULLIF(SUM(kpi_001_total_trips), 0), 2)
+       FROM gold.trip_performance)                                        AS kpi_017_low_speed_rate_pct,
+
     (SELECT ROUND(100.0 * SUM(valid_records) / NULLIF(SUM(total_records), 0), 2)
        FROM gold.data_quality)                                            AS kpi_018_data_quality_pct
