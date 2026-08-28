@@ -199,13 +199,19 @@
                   "fieldName": "kpi_001_total_trips",
                   "displayName": "Total Trips"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Trips",
+                "showDescription": true,
+                "description": "KPI-001"
               }
             }
           },
           "position": {
             "x": 0,
             "y": 2,
-            "width": 1,
+            "width": 2,
             "height": 3
           }
         },
@@ -233,15 +239,21 @@
               "encodings": {
                 "value": {
                   "fieldName": "kpi_002_avg_duration_min",
-                  "displayName": "Avg Duration (min)"
+                  "displayName": "Avg Trip Duration (min)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Avg Trip Duration (min)",
+                "showDescription": true,
+                "description": "KPI-002"
               }
             }
           },
           "position": {
-            "x": 1,
+            "x": 2,
             "y": 2,
-            "width": 1,
+            "width": 2,
             "height": 3
           }
         },
@@ -269,15 +281,21 @@
               "encodings": {
                 "value": {
                   "fieldName": "kpi_003_median_duration_min",
-                  "displayName": "Median Duration (min)"
+                  "displayName": "Median Trip Duration (min)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Median Trip Duration (min)",
+                "showDescription": true,
+                "description": "KPI-003"
               }
             }
           },
           "position": {
-            "x": 2,
+            "x": 4,
             "y": 2,
-            "width": 1,
+            "width": 2,
             "height": 3
           }
         },
@@ -305,15 +323,21 @@
               "encodings": {
                 "value": {
                   "fieldName": "kpi_004_p90_duration_min",
-                  "displayName": "P90 Duration (min)"
+                  "displayName": "P90 Trip Duration (min)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "P90 Trip Duration (min)",
+                "showDescription": true,
+                "description": "KPI-004"
               }
             }
           },
           "position": {
-            "x": 3,
-            "y": 2,
-            "width": 1,
+            "x": 0,
+            "y": 5,
+            "width": 2,
             "height": 3
           }
         },
@@ -343,13 +367,19 @@
                   "fieldName": "kpi_005_avg_estimated_distance_km",
                   "displayName": "Avg Estimated Distance (km)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Avg Estimated Distance (km)",
+                "showDescription": true,
+                "description": "KPI-005 \u00b7 Geodesic straight-line, not road distance."
               }
             }
           },
           "position": {
-            "x": 4,
-            "y": 2,
-            "width": 1,
+            "x": 2,
+            "y": 5,
+            "width": 2,
             "height": 3
           }
         },
@@ -379,13 +409,19 @@
                   "fieldName": "kpi_006_avg_estimated_speed_kmh",
                   "displayName": "Avg Estimated Speed (km/h)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Avg Estimated Speed (km/h)",
+                "showDescription": true,
+                "description": "KPI-006 \u00b7 Geodesic straight-line, not road distance."
               }
             }
           },
           "position": {
-            "x": 5,
-            "y": 2,
-            "width": 1,
+            "x": 4,
+            "y": 5,
+            "width": 2,
             "height": 3
           }
         },
@@ -415,13 +451,19 @@
                   "fieldName": "kpi_009_peak_hour",
                   "displayName": "Peak Hour"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Peak Hour",
+                "showDescription": true,
+                "description": "KPI-009 \u00b7 hour of day with the most trips"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 5,
-            "width": 1,
+            "y": 8,
+            "width": 2,
             "height": 3
           }
         },
@@ -451,13 +493,19 @@
                   "fieldName": "kpi_018_data_quality_pct",
                   "displayName": "Data Quality Score (%)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Data Quality Score (%)",
+                "showDescription": true,
+                "description": "KPI-018 \u00b7 valid \u00f7 total across all batches"
               }
             }
           },
           "position": {
-            "x": 1,
-            "y": 5,
-            "width": 1,
+            "x": 2,
+            "y": 8,
+            "width": 2,
             "height": 3
           }
         },
@@ -513,13 +561,19 @@
                     "displayName": "% of batch"
                   }
                 ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Quarantine by Rule",
+                "showDescription": true,
+                "description": "Empty means nothing was rejected, not that the rules did not run."
               }
             }
           },
           "position": {
-            "x": 2,
-            "y": 5,
-            "width": 4,
+            "x": 4,
+            "y": 8,
+            "width": 2,
             "height": 3
           }
         },
@@ -563,12 +617,18 @@
                   },
                   "displayName": "Trips per day"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Demand Trend",
+                "showDescription": true,
+                "description": "KPI-007"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 8,
+            "y": 11,
             "width": 6,
             "height": 6
           }
@@ -613,12 +673,18 @@
                   },
                   "displayName": "Trips"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Trips by Hour of Day",
+                "showDescription": true,
+                "description": "KPI-008"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 14,
+            "y": 17,
             "width": 3,
             "height": 6
           }
@@ -663,12 +729,18 @@
                   },
                   "displayName": "Trip share (%)"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Vendor Trip Share",
+                "showDescription": true,
+                "description": "KPI-013"
               }
             }
           },
           "position": {
             "x": 3,
-            "y": 14,
+            "y": 17,
             "width": 3,
             "height": 6
           }
@@ -757,12 +829,18 @@
                     "displayName": "Avg Est. Speed (km/h)"
                   }
                 ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Vendor Comparison (KPI-013..015)",
+                "showDescription": true,
+                "description": "P50 and P90 sit beside the mean on purpose: durations are right-skewed and vendor trip mixes differ, so averages alone invite a conclusion the data does not support."
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 20,
+            "y": 23,
             "width": 6,
             "height": 4
           }
@@ -807,12 +885,18 @@
                   },
                   "displayName": "Trips"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Pickup Areas",
+                "showDescription": true,
+                "description": "KPI-010 \u00b7 trip count only, by contract"
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 24,
+            "y": 27,
             "width": 3,
             "height": 6
           }
@@ -857,12 +941,18 @@
                   },
                   "displayName": "Trips"
                 }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Drop-off Areas",
+                "showDescription": true,
+                "description": "KPI-011 \u00b7 trip count only, by contract"
               }
             }
           },
           "position": {
             "x": 3,
-            "y": 24,
+            "y": 27,
             "width": 3,
             "height": 6
           }
@@ -943,12 +1033,18 @@
                     "displayName": "Avg Est. Speed (km/h)"
                   }
                 ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Top 10 Routes (KPI-012)",
+                "showDescription": true,
+                "description": "Routes carry companion metrics; pickup and drop-off areas do not."
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 30,
+            "y": 33,
             "width": 6,
             "height": 4
           }
@@ -1077,12 +1173,18 @@
                     "displayName": "Reconciles"
                   }
                 ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Data Quality by Batch (KPI-018..020)",
+                "showDescription": true,
+                "description": "Component scores are shown separately, not blended: a single number hides which dimension is failing. `reconciles` false means rows are disappearing."
               }
             }
           },
           "position": {
             "x": 0,
-            "y": 34,
+            "y": 37,
             "width": 6,
             "height": 4
           }
