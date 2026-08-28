@@ -1,0 +1,60 @@
+version: 2
+models:
+  - name: trip_performance
+    description: >-
+      KPI-001..006 (+ KPI-016/017 when their thresholds are approved). Grain: date x vendor x
+      time_of_day. Idempotent — full replace on every run (BDD-04).
+    columns:
+      - name: kpi_001_total_trips
+        description: KPI-001 Total Trips — COUNT(DISTINCT id) over valid trips.
+        data_tests: [not_null]
+      - name: kpi_002_avg_duration_seconds
+        description: KPI-002 Average Trip Duration, seconds.
+      - name: kpi_005_avg_estimated_distance_km
+        description: >-
+          KPI-005 Average Estimated Distance. GEODESIC — never present as actual route
+          distance (BDD-07).
+      - name: kpi_006_avg_estimated_speed_kmh
+        description: >-
+          KPI-006 Average Estimated Speed. Derived from geodesic distance; not a road-speed
+          measurement (BDD-07).
+
+  - name: demand_metrics
+    description: KPI-007 Trips Per Day, KPI-008 Trips Per Hour, KPI-009 Peak Demand Hour.
+    columns:
+      - name: kpi_009_peak_hour
+        description: KPI-009. Ties broken by lowest hour so reruns agree (goal G2).
+        data_tests:
+          - accepted_values: {values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23], quote: false}
+
+  - name: geographic_metrics
+    description: >-
+      KPI-010 Top Pickup Area, KPI-011 Top Drop-off Area, KPI-012 Top Route — as ranked rows;
+      "top" is rank_in_dimension = 1. Route rows carry the contract §8 companion metrics.
+    columns:
+      - name: dimension
+        data_tests:
+          - not_null
+          - accepted_values: {values: ['pickup_area','dropoff_area','route']}
+
+  - name: vendor_performance
+    description: KPI-013 Vendor Trip Share, KPI-014 Vendor Avg Duration, KPI-015 Vendor P90 Duration.
+    columns:
+      - name: vendor_id
+        data_tests: [not_null, unique]
+      - name: kpi_013_vendor_trip_share_pct
+        description: Shares sum to ~100% across the included vendor population (contract §9).
+
+  - name: data_quality
+    description: KPI-018 Quality Score, KPI-019 Invalid Rate, KPI-020 Duplicate Rate. Grain, batch.
+    columns:
+      - name: source_hash
+        data_tests: [not_null, unique]
+      - name: reconciles
+        description: total = valid + quarantined. Must always be true — false means silent data loss.
+        data_tests:
+          - accepted_values: {values: [true], quote: false}
+      - name: kpi_020_duplicate_rate_pct
+        description: >-
+          KPI-020. Computed from the PRE-deduplication population, so a batch with duplicates
+          reports them (contract §11, BDD-06).

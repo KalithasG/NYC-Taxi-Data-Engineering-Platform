@@ -1,0 +1,50 @@
+# --- Raw data: Kaggle-licensed and large. Never committed; pre-commit hook enforces this. ---
+data/*
+!data/README.md
+!data/.gitkeep
+*.csv
+*.parquet
+*.zip
+*.7z
+
+# --- Credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.databrickscfg
+
+# --- Databricks / dbt ---
+.databricks/
+dbt_packages/
+logs/
+target/
+profiles.yml
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- OS / editor ---
+.DS_Store
+.vscode/
+.idea/
+
+# --- local Spark / dbt working state ---
+spark-warehouse/
+metastore_db/
+derby.log
+data/_warehouse/
+data/fixture_trips.csv
+src/transformations/target/
+src/transformations/logs/
+.dbt/

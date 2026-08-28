@@ -1,0 +1,36 @@
+name: nyc_taxi_platform
+version: "1.0.0"
+config-version: 2
+profile: nyc_taxi_platform
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  nyc_taxi_platform:
+    +materialized: table          # full replace => idempotent by construction (BDD-04)
+    silver:
+      # Not relocated. Moving Silver is a physical refactor with no KPI contract implication,
+      # so it is not covered by the v1.2 record — see kpi-changelog.md.
+      +schema: null
+    gold:
+      # Contract v1.2: the marts live in their own schema so per-layer grants have something to
+      # attach to (resources/permissions.yml). Verbatim, not prefixed — see macros/schema_routing.sql.
+      +schema: gold
+
+# Thresholds and DQ parameters are injected by src/transformations/run.py, which reads them
+# from configs/kpi_config.yml and configs/quality_rules.yml. They are NOT duplicated here —
+# a formula or bound copied into a second file is a formula that will drift.
+vars:
+  catalog: "nyc_taxi"
+  schema_name: "nyc_taxi_dev"
+  # every threshold defaults to the sentinel; run.py overrides with approved values only
+  long_trip_seconds: "TBD_PENDING_PROFILING"
+  low_speed_kmh: "TBD_PENDING_PROFILING"
+  extreme_duration_seconds: "TBD_PENDING_PROFILING"
+  extreme_distance_km: "TBD_PENDING_PROFILING"
+  vendor_domain: "TBD_PENDING_PROFILING"
+  passenger_count_domain: "TBD_PENDING_PROFILING"
+  nyc_bounds: "TBD_PENDING_PROFILING"

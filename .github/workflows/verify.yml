@@ -1,0 +1,188 @@
+name: verify
+
+# Closes a real gap: EVAL_PLAN.md says eval-as-unit-test runs in CI on every change. Until this
+# existed, the gates only fired from .githooks/pre-commit — which is opt-in per clone
+# (git config core.hooksPath .githooks). Anyone who skipped that step bypassed all six.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  contracts:
+    name: contract gates
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: check_kpi_contract.py and check_thresholds.py diff a base ref against the
+      # working tree. Without the base commit present they have nothing to compare and pass
+      # unconditionally — a green check that verifies nothing.
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+
+      - name: Install
+        run: pip install --quiet pyyaml
+
+      - name: Resolve base ref
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+          else
+            # First push of a branch has no predecessor; compare against itself so the
+            # scripts run and report rather than erroring on a missing ref.
+            echo "ref=HEAD" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ---- blocking: all of these pass on the current tree, so a failure is a real change ----
+      - name: KPI contract — no unversioned definition change
+        run: python .claude/skills/kpi-contract-guard/scripts/check_kpi_contract.py --base "${{ steps.base.outputs.ref }}"
+
+      - name: Thresholds — none resolved without an evidence record
+        run: python .claude/skills/threshold-decision/scripts/check_thresholds.py --base "${{ steps.base.outputs.ref }}"
+
+      - name: Layer contracts — Bronze immutable, Silver deterministic, Gold idempotent, BDD-07 wording
+        run: python .claude/skills/medallion-transform/scripts/check_layer_contracts.py
+
+      - name: DQ rules — structure valid and every rule has a test
+        run: python .claude/skills/dq-rule-authoring/scripts/check_dq_rules.py --strict
+
+      - name: Lineage — every KPI traceable source to consumer
+        run: python .claude/skills/kpi-lineage-doc/scripts/check_lineage.py --strict
+
+      - name: Config contracts — 20 KPIs, 15 DQ rules, 11 columns
+        run: |
+          python - <<'PY'
+          import sys, yaml
+          k = yaml.safe_load(open("configs/kpi_config.yml"))
+          q = yaml.safe_load(open("configs/quality_rules.yml"))
+          s = yaml.safe_load(open("configs/schema.yml"))
+          c = open("docs/business/kpi-data-contract.md").read()
+          ok = True
+          ids = [x["id"] for x in k["kpis"]]
+          for label, got, want in (("KPI ids", ids, [f"KPI-{i:03d}" for i in range(1, 21)]),
+                                   ("DQ ids", [x["id"] for x in q["rules"]],
+                                    [f"DQ-{i:03d}" for i in range(1, 16)])):
+              if got != want:
+                  print(f"FAIL {label}: {got}"); ok = False
+          if k["kpi_count"] != len(ids):
+              print(f"FAIL kpi_count {k['kpi_count']} != {len(ids)}"); ok = False
+          if len(s["columns"]) != 11:
+              print(f"FAIL columns {len(s['columns'])} != 11"); ok = False
+          missing = [i for i in ids if i not in c]
+          if missing:
+              print(f"FAIL KPI ids absent from the contract document: {missing}"); ok = False
+          print("config contracts OK" if ok else "config contracts FAILED")
+          sys.exit(0 if ok else 1)
+          PY
+
+      # ---- informational: these correctly fail today; each says what promotes it ----
+      - name: (informational) Build gate — KPI-016/017 await approved thresholds
+        continue-on-error: true
+        run: |
+          echo "Expected to fail until profiling produces evidence and a human approves the"
+          echo "thresholds. Promote to blocking once check_thresholds.py --gate exits 0."
+          python .claude/skills/threshold-decision/scripts/check_thresholds.py --gate
+
+      - name: (informational) Profiling run not yet performed
+        continue-on-error: true
+        run: |
+          echo "Expected to fail until the Kaggle dataset is profiled. Promote to blocking once"
+          echo "docs/profiling/profiling-report.md is a real run."
+          python .claude/skills/data-profiling-runner/scripts/check_profiling_complete.py
+
+  hooks:
+    name: pre-commit guard still blocks
+    runs-on: ubuntu-latest
+    # CI is the backstop for clones without hooks installed, so the guard itself is tested here.
+    # A guard nobody has verified is prose with extra steps.
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install --quiet pyyaml
+      - name: Planted violations must all be blocked
+        run: |
+          set -u
+          git config user.email ci@example.com && git config user.name CI
+          git config core.hooksPath .githooks
+          fail=0
+          check() { # name, expect(block|allow)
+            if .githooks/pre-commit >/dev/null 2>&1; then r=allow; else r=block; fi
+            if [ "$r" = "$2" ]; then echo "PASS $1 ($r)"; else echo "FAIL $1 (got $r want $2)"; fail=1; fi
+            git reset -q
+          }
+          printf 'tok="dapi%s"\n' "0123456789abcdef0123456789abcdef" > t.py
+          git add -f t.py; check "databricks PAT" block; rm -f t.py
+          # Assembled from parts: a literal AWS key in this file would be blocked by the
+          # very scanner this step tests, which is correct behaviour on the scanner's part.
+          printf 'k="%s%s"\n' "AKIA" "IOSFODNN7EXAMPLE" > t.py
+          git add -f t.py; check "AWS key" block; rm -f t.py
+          mkdir -p data && printf 'a,b\n1,2\n' > data/train.csv
+          git add -f data/train.csv; check "raw dataset" block; rm -f data/train.csv
+          printf 'X=1\n' > .env; git add -f .env; check ".env" block; rm -f .env
+          python - <<'PY'
+          import pathlib
+          p = pathlib.Path("configs/kpi_config.yml"); s = p.read_text()
+          p.write_text(s.replace("    formula: AVG(trip_duration)\n",
+                                 "    formula: AVG(trip_duration) FILTER (WHERE x)\n", 1))
+          PY
+          git add configs/kpi_config.yml; check "unversioned KPI change" block
+          git checkout -- configs/kpi_config.yml
+          git add -A; check "clean tree" allow
+          exit $fail
+
+  bundle:
+    name: asset bundle structure
+    runs-on: ubuntu-latest
+    # `databricks bundle validate` needs a workspace, which CI does not have. This checks what
+    # can be checked without one: that the YAML parses, every ${var.*} resolves to a declared
+    # variable, every ${resources.*} reference points at something real, and every task's
+    # entry-point file exists. A bundle referencing a deleted script is the failure this catches.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install --quiet pyyaml
+      - name: Validate bundle structure
+        run: python scripts/validate_bundle.py
+
+  pipeline:
+    name: pipeline end to end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Install
+        run: pip install --quiet pyspark delta-spark pandas pyyaml pytest dbt-core "dbt-spark[session]"
+      - name: dbt profile
+        run: |
+          mkdir -p ~/.dbt
+          printf 'nyc_taxi_platform:\n  target: local\n  outputs:\n    local:\n      type: spark\n      method: session\n      schema: nyc_taxi_dev\n      host: local\n      threads: 1\n' > ~/.dbt/profiles.yml
+      - name: Local Spark config (Delta for every session — ingestion, dbt, profiling, pytest)
+        run: echo "SPARK_CONF_DIR=$GITHUB_WORKSPACE/conf" >> "$GITHUB_ENV"
+
+      - name: BDD-05 — default run must be blocked while thresholds are pending
+        run: |
+          if python -m src.transformations.run --dry-run; then
+            echo "FAIL: the run should be blocked while KPI-016/017 lack approved thresholds"
+            exit 1
+          fi
+          echo "PASS: blocked as designed"
+      - name: Build and test against the fixture
+        run: |
+          python tests/fixtures/make_fixture.py --out data/fixture_trips.csv
+          python -m src.ingestion.load_bronze --input data/fixture_trips.csv --local
+          python -m src.transformations.run --target local --allow-withheld
+          python -m src.profiling.run_profiling --local --write-tables --report /tmp/ci-report.md
+          pytest tests/test_pipeline_e2e.py tests/data_quality -q
+      - name: Profiling output must satisfy its own checker
+        run: python .claude/skills/data-profiling-runner/scripts/check_profiling_complete.py --report /tmp/ci-report.md

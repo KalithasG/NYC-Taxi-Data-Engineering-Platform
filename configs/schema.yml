@@ -1,0 +1,108 @@
+# Source schema contract — NYC Taxi Trip Duration (Kaggle)
+# Derived from: docs/business/kpi-data-contract.md §2 and docs/profiling/data-profiling-spec.md §3
+# Schema drift rule (profiling spec §6):
+#   required column missing  -> profile_status = FAIL
+#   unexpected column present -> profile_status = WARNING
+version: 1.0
+dataset: nyc-taxi-trip-duration
+grain: one row per taxi trip (id)
+primary_key: id
+
+# Expected characteristics are ASSUMPTIONS to be confirmed by the profiling run (spec OQ-6).
+# Nothing downstream may hard-code these before profiling confirms them.
+expectations_pending_profiling:
+  row_count: unverified
+  date_range: unverified
+  vendor_domain: unverified
+
+columns:
+  - name: id
+    type: string
+    required: true
+    nullable: false
+    description: Unique trip identifier
+    profiling: [null_count, distinct_count, duplicate_count]
+
+  - name: vendor_id
+    type: integer
+    required: true
+    nullable: false
+    description: Taxi vendor identifier
+    domain: TBD_PENDING_PROFILING   # profiling spec §9.1 — do not hard-code before profiling
+    profiling: [domain, frequency]
+
+  - name: pickup_datetime
+    type: timestamp
+    required: true
+    nullable: false
+    description: Trip pickup timestamp
+    profiling: [null_count, min, max, frequency]
+
+  - name: dropoff_datetime
+    type: timestamp
+    required: true
+    nullable: false
+    description: Trip drop-off timestamp
+    profiling: [null_count, min, max, ordering]
+
+  - name: passenger_count
+    type: integer
+    required: true
+    nullable: false
+    description: Number of passengers
+    domain: TBD_PENDING_PROFILING   # profiling spec §9.3 — zero-count semantics unresolved (OQ-5)
+    profiling: [min, max, mean, median, frequency, zero_count, negative_count]
+
+  - name: pickup_longitude
+    type: decimal
+    required: true
+    nullable: false
+    description: Pickup longitude
+    profiling: [null_count, min, max, median, percentiles, outlier]
+
+  - name: pickup_latitude
+    type: decimal
+    required: true
+    nullable: false
+    description: Pickup latitude
+    profiling: [null_count, min, max, median, percentiles, outlier]
+
+  - name: dropoff_longitude
+    type: decimal
+    required: true
+    nullable: false
+    description: Drop-off longitude
+    profiling: [null_count, min, max, median, percentiles, outlier]
+
+  - name: dropoff_latitude
+    type: decimal
+    required: true
+    nullable: false
+    description: Drop-off latitude
+    profiling: [null_count, min, max, median, percentiles, outlier]
+
+  - name: store_and_fwd_flag
+    type: string
+    required: true
+    nullable: false
+    description: Whether the trip record was held in vehicle memory before forwarding
+    domain_expected: [Y, N]         # conceptual; normalize only AFTER profiling (spec §9.2)
+    profiling: [domain, whitespace, case_variants, null_count]
+
+  - name: trip_duration
+    type: integer
+    required: true
+    nullable: false
+    unit: seconds
+    description: Trip duration in seconds. The core measure this platform reports on.
+    profiling: [min, max, mean, median, stddev, p25, p50, p75, p90, p95, p99, zero_count, negative_count]
+
+# Bronze adds these on ingestion; they are not present in the source file.
+ingestion_metadata:
+  - name: source_file
+    type: string
+  - name: source_hash
+    type: string
+    description: SHA256 of the source file — drives BDD-01 idempotency
+  - name: ingested_at
+    type: timestamp

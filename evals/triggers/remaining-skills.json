@@ -1,0 +1,33 @@
+{
+  "note": "Trigger evals for the four non-gate skills. The negatives here are mostly cross-skill routing — with six skills installed, firing the wrong one is now a more likely failure than firing none.",
+  "skills": {
+    "data-profiling-runner": [
+      {"id": 1, "type": "positive", "prompt": "I've got train.csv downloaded. What does this data actually look like — how many nulls, are the ids unique, what's the date range?", "expected_output": "Fires. Records the SHA256 first, then works the 16-step order. Does not clean anything."},
+      {"id": 2, "type": "positive-rephrasing", "prompt": "before we build anything can you check whether the taxi data is any good", "expected_output": "Fires. Same handling; 'is it any good' is a profiling question."},
+      {"id": 3, "type": "positive", "prompt": "Does trip_duration actually agree with dropoff_datetime minus pickup_datetime? Seems like something we should know.", "expected_output": "Fires. This is step 08, the most important check in the run. Quantifies the disagreement without declaring which column wins."},
+      {"id": 4, "type": "negative-near-miss", "prompt": "The profiling report says P99 duration is 4200s. Set the long-trip threshold accordingly.", "expected_output": "Should route to threshold-decision. Profiling produced the evidence; deciding the cutoff is a different job."},
+      {"id": 5, "type": "negative-near-miss", "prompt": "Write the Silver transformation that derives estimated_distance_km from the coordinate columns.", "expected_output": "Should route to medallion-transform. Building a derivation is not profiling it."}
+    ],
+    "dq-rule-authoring": [
+      {"id": 1, "type": "positive", "prompt": "Implement DQ-006 — dropoff can't be before pickup. Where do the failing rows go?", "expected_output": "Fires. Reject + critical, quarantine reason NEGATIVE_TIME_INTERVAL, plus the reconciliation test."},
+      {"id": 2, "type": "positive-rephrasing", "prompt": "some rows have passenger_count of 0, should we be dropping those?", "expected_output": "Fires. Answers no — DQ-008 is flag, not reject; profiling §9.3 and spec OQ-5 say the semantics are unresolved."},
+      {"id": 3, "type": "positive", "prompt": "The valid row count plus the quarantined count doesn't equal what we ingested. Something's eating rows.", "expected_output": "Fires. This is the DQ-015 reconciliation failing — silent data loss."},
+      {"id": 4, "type": "negative-near-miss", "prompt": "What NYC coordinate bounds should DQ-009 use?", "expected_output": "Should route to threshold-decision. The rule's structure is DQ work; its parameter value is a threshold decision pending profiling."},
+      {"id": 5, "type": "negative-near-miss", "prompt": "Add a data quality tile to the executive dashboard showing KPI-018.", "expected_output": "Should NOT fire. Presenting a DQ metric is dashboard work, not rule authoring."}
+    ],
+    "medallion-transform": [
+      {"id": 1, "type": "positive", "prompt": "Write the gold.demand_metrics model for trips per day and per hour.", "expected_output": "Fires. Idempotent write (replace partition, not INSERT INTO), reads formulas from kpi_config.yml rather than restating them."},
+      {"id": 2, "type": "positive-rephrasing", "prompt": "ran the pipeline twice and the trip counts doubled, whats going on", "expected_output": "Fires. Gold is appending instead of replacing — BDD-04. Does not mention 'medallion' or 'layer' but is exactly the failure the contract exists for."},
+      {"id": 3, "type": "positive", "prompt": "A few hundred Bronze rows have a bad vendor_id. Can you just update them in place?", "expected_output": "Fires. Refuses: Bronze is append-only, a correction is a new ingestion. The linter blocks the UPDATE independently."},
+      {"id": 4, "type": "negative-near-miss", "prompt": "Rename KPI-005 to 'Average Trip Distance' — the word 'estimated' is cluttering the dashboard.", "expected_output": "Should route to kpi-contract-guard for the rename, AND flag the BDD-07 violation. Dropping 'estimated' turns a geodesic measure into a claim about road distance."},
+      {"id": 5, "type": "negative-near-miss", "prompt": "What's the difference between a star schema and a snowflake schema?", "expected_output": "Should NOT fire. General modelling question with no repo-specific transformation work."}
+    ],
+    "kpi-lineage-doc": [
+      {"id": 1, "type": "positive", "prompt": "Where does the average speed number on the ops dashboard actually come from?", "expected_output": "Fires. Traces KPI-006 back through estimated_speed_kmh to the four coordinate columns and trip_duration, and surfaces the geodesic caveat."},
+      {"id": 2, "type": "positive-rephrasing", "prompt": "if we change how pickup_area gets bucketed, what else breaks?", "expected_output": "Fires. Upward impact analysis — KPI-010, KPI-011, KPI-012 and route_key all depend on it."},
+      {"id": 3, "type": "positive", "prompt": "We just added two KPIs to kpi_config.yml. The lineage doc is stale.", "expected_output": "Fires. Regenerates via --scaffold, then a human fills the Consumer column."},
+      {"id": 4, "type": "negative-near-miss", "prompt": "Does Unity Catalog give us column-level lineage automatically on Databricks?", "expected_output": "Should NOT fire as a documentation task. A platform capability question, though worth noting UC lineage would complement this doc rather than replace it — it cannot record intent or caveats."},
+      {"id": 5, "type": "negative-near-miss", "prompt": "KPI-013 vendor trip share looks wrong — the percentages sum to 103%.", "expected_output": "Should NOT fire. A correctness bug. Lineage may help diagnose it, but the task is debugging, most likely duplicate rows inflating the numerator."}
+    ]
+  }
+}

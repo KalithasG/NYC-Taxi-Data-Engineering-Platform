@@ -1,0 +1,43 @@
+# Unity Catalog objects. One catalog, one schema per medallion layer.
+#
+# The schema split is not cosmetic: it is what makes per-layer grants possible
+# (resources/permissions.yml). While every table shares one schema, "analysts can read Gold and
+# nothing else" cannot be expressed — the layer would only exist in the table name.
+resources:
+  schemas:
+    bronze:
+      catalog_name: ${var.catalog}
+      name: bronze
+      comment: >-
+        Raw landing zone. Append-only and immutable: never updated, never deleted. Every row
+        carries source_file, source_hash and ingested_at. A correction is a new ingestion.
+
+    silver:
+      catalog_name: ${var.catalog}
+      name: silver
+      comment: >-
+        Trusted trip population plus the quarantine table. Deterministic — the same Bronze rows
+        produce byte-identical Silver rows. Outliers are flagged, never deleted (DQ-014).
+
+    gold:
+      catalog_name: ${var.catalog}
+      name: gold
+      comment: >-
+        Business KPI marts. Idempotent: a rerun replaces a partition wholesale and never
+        double-counts (BDD-04). This is the only layer analysts and dashboards read.
+
+    profiling:
+      catalog_name: ${var.catalog}
+      name: profiling
+      comment: >-
+        Profiling run outputs (profile_run, profile_schema, profile_numeric_stats,
+        profile_domain_stats, profile_quality, profile_anomalies) — the evidence behind every
+        approved threshold.
+
+  volumes:
+    landing:
+      catalog_name: ${var.catalog}
+      schema_name: ${resources.schemas.bronze.name}
+      name: landing
+      volume_type: MANAGED
+      comment: Source CSV upload target. The dataset is never committed to git.

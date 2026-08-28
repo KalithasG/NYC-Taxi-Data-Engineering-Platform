@@ -1,0 +1,117 @@
+# The pipeline job. Task order is the dependency order, and the first task is a gate rather than
+# a transformation: a run that would compute a KPI from an unapproved threshold fails before it
+# touches a table.
+#
+# Free Edition is serverless-only, so no cluster block appears or is permitted.
+resources:
+  jobs:
+    nyc_taxi_pipeline:
+      name: nyc-taxi-pipeline
+      tags:
+        project: nyc-taxi-data-engineering-platform
+        layer: medallion
+      queue: {enabled: true}
+
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: landing_path, default: "${var.landing_path}"}
+        # Set to "false" once thresholds are approved, so the gate becomes hard and all 20 KPIs
+        # build. While it is "true" the run proceeds with 18 and names the two it withheld.
+        - {name: allow_withheld, default: "true"}
+
+      # Free Edition is serverless-only, so there is no cluster block. Serverless tasks still
+      # need an execution environment, and every task references this one — without it the job
+      # fails `bundle validate` with "requires a cluster or an environment to run".
+      # environment_version is the workspace's current serverless version (5); `client` is the
+      # deprecated spelling of the same field.
+      environments:
+        - environment_key: serverless
+          spec:
+            environment_version: "5"
+            dependencies:
+              # Read by the threshold gate and the profiling run — both load configs/*.yml.
+              - pyyaml==6.0.3
+              # The dbt task runs `dbt build` in this environment, so the adapter lives here.
+              - dbt-databricks==1.12.4
+
+      tasks:
+        - task_key: threshold_gate
+          environment_key: serverless
+          description: >-
+            BDD-05. Fails while any build-blocking KPI lacks an approved threshold, before any
+            table is written.
+          spark_python_task:
+            python_file: ../src/transformations/run.py
+            # The job parameter drives the gate: "true" builds the unblocked KPIs and names
+            # what it withheld, "false" makes the gate hard (BDD-05). Without this the gate is
+            # always hard, and profile_source — which produces the evidence the thresholds are
+            # waiting on — can never run.
+            parameters: ["--dry-run", "--target", "databricks",
+                         "--allow-withheld", "{{job.parameters.allow_withheld}}"]
+
+        - task_key: ingest_bronze
+          environment_key: serverless
+          depends_on: [{task_key: threshold_gate}]
+          description: Land the CSV in Bronze — immutable, hash-tagged, idempotent (BDD-01).
+          spark_python_task:
+            python_file: ../src/ingestion/load_bronze.py
+            parameters:
+              - "--input"
+              - "{{job.parameters.landing_path}}"
+              - "--catalog"
+              - "{{job.parameters.catalog}}"
+              - "--schema"
+              - "bronze"
+
+        - task_key: build_silver_gold
+          environment_key: serverless
+          depends_on: [{task_key: ingest_bronze}]
+          description: dbt build — Silver, the DQ split, the five Gold marts, and 28 tests.
+          dbt_task:
+            project_directory: ../src/transformations
+            commands:
+              # No --target on purpose. A Databricks dbt task generates its own profiles.yml
+              # from the catalog/schema/warehouse_id below, and names that target
+              # `databricks_cluster` — `--target databricks` is the profile in
+              # profiles.yml.example, which only exists when dbt runs from a workstation.
+              # Omitting the flag uses the generated profile's own default either way.
+              # bronze_schema matches the --schema this job's ingest_bronze task writes to.
+              # Silver and Gold route themselves (profile schema + macros/schema_routing.sql).
+              - "dbt build --vars '{bronze_schema: bronze}'"
+            catalog: "${var.catalog}"
+            # Silver's schema. Gold overrides it to `gold` via macros/schema_routing.sql, so this
+            # is the Silver namespace, not a default for everything.
+            schema: silver
+            warehouse_id: "${var.warehouse_id}"
+
+        - task_key: profile_source
+          environment_key: serverless
+          # Depends on build_silver_gold, not ingest_bronze: profiling reads silver_typed for
+          # every distribution, and that view does not exist until dbt has run.
+          depends_on: [{task_key: build_silver_gold}]
+          description: >-
+            Profiling spec §34. Emits the six profile_* tables and the report — the evidence
+            every pending threshold is waiting on.
+          spark_python_task:
+            python_file: ../src/profiling/run_profiling.py
+            parameters:
+              # One schema per layer, so bronze_trips, silver_typed and the profile_* output are
+              # in three different namespaces. Passing only --catalog would look for all three in
+              # the default schema and fail on the first.
+              - "--catalog"
+              - "{{job.parameters.catalog}}"
+              - "--bronze-schema"
+              - "bronze"
+              - "--typed-schema"
+              - "silver"
+              - "--output-schema"
+              - "profiling"
+              - "--write-tables"
+              # The default report path is inside the deployed bundle files, which the next
+              # deploy replaces. The user's workspace home persists and can be exported.
+              - "--report"
+              - "/Workspace/Users/${workspace.current_user.userName}/nyc-taxi-profiling-report.md"
+
+      email_notifications:
+        # Deliberately empty rather than a guessed address.
+        on_failure: []

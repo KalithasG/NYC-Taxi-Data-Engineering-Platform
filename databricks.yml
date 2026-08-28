@@ -1,0 +1,42 @@
+# Databricks Asset Bundle — the deployable definition of this platform.
+#
+# Moves the project from "I used Databricks" to "I engineered a deployable Databricks platform":
+# catalog, schemas, volume, job and grants are declared here and version-controlled, rather than
+# clicked together in the UI where nobody can review or reproduce them.
+#
+#   databricks bundle validate
+#   databricks bundle deploy  --target dev
+#   databricks bundle run     nyc_taxi_pipeline --target dev
+bundle:
+  name: nyc-taxi-data-engineering-platform
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog holding every layer of this platform.
+    default: nyc_taxi_dev
+  warehouse_id:
+    description: Serverless SQL warehouse id used by the dbt task.
+    default: ""
+  landing_path:
+    description: Volume path the source CSV is uploaded to.
+    default: /Volumes/nyc_taxi_dev/bronze/landing/train.csv
+
+targets:
+  # Development is the default so an accidental `bundle deploy` cannot touch prod.
+  dev:
+    mode: development
+    default: true
+    variables:
+      catalog: nyc_taxi_dev
+      landing_path: /Volumes/nyc_taxi_dev/bronze/landing/train.csv
+
+  prod:
+    mode: production
+    variables:
+      catalog: nyc_taxi
+      landing_path: /Volumes/nyc_taxi/bronze/landing/train.csv
+    # `mode: production` makes the bundle refuse to deploy from a dirty working tree and
+    # namespaces nothing by username — a deploy is a deliberate act, not a side effect.

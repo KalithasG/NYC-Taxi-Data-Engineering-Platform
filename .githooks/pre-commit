@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+# Pre-commit guard — NYC Taxi Data Engineering Platform
+#
+# Deterministic enforcement of the three things AGENTS.md forbids but prose cannot guarantee:
+#   1. Databricks credentials / secrets
+#   2. Raw Kaggle data (licensing + repo size)
+#   3. .env files carrying real values
+#
+# Enable once per clone:  git config core.hooksPath .githooks
+# Do NOT bypass with --no-verify.
+
+set -uo pipefail
+fail=0
+err() { printf '\033[31mBLOCKED\033[0m %s\n' "$1" >&2; fail=1; }
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+while IFS= read -r file; do
+    [ -f "$file" ] || continue
+
+    # --- 2. Raw data files -------------------------------------------------
+    case "$file" in
+        data/*.csv|data/*.zip|data/*.parquet|data/*.csv.gz|data/*.7z)
+            err "$file — raw dataset must not be committed (Kaggle-licensed, large). See data/README.md."
+            continue
+            ;;
+    esac
+
+    # --- 3. .env files (the example is the only permitted one) -------------
+    case "$(basename "$file")" in
+        .env|.env.*)
+            [ "$(basename "$file")" = ".env.example" ] || \
+                err "$file — .env files carry real credentials. Commit .env.example instead."
+            ;;
+    esac
+
+    # Skip binary files for the content scan
+    git diff --cached --numstat -- "$file" | grep -q '^-' && continue
+
+    # --- 1. Secret patterns in staged content ------------------------------
+    content=$(git show ":$file" 2>/dev/null) || continue
+
+    # Databricks PAT: dapi + 32 hex chars
+    if printf '%s' "$content" | grep -qE 'dapi[0-9a-f]{32}'; then
+        err "$file — contains a Databricks personal access token (dapi…)."
+    fi
+    # Databricks OAuth client secret
+    if printf '%s' "$content" | grep -qE 'dose[0-9a-f]{32}'; then
+        err "$file — contains a Databricks OAuth secret (dose…)."
+    fi
+    # Generic assigned secrets with a real-looking value (20+ chars, not a placeholder)
+    if printf '%s' "$content" | grep -qiE '(client_secret|api_key|password|access_token|secret_key)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9/_+=-]{20,}'; then
+        if ! printf '%s' "$content" | grep -qiE '(client_secret|api_key|password|access_token|secret_key)[[:space:]]*[:=][[:space:]]*["'"'"']?(\$\{|<|your|example|placeholder|xxx|changeme|TBD)'; then
+            err "$file — looks like a hard-coded credential. Use an env var or a Databricks secret scope."
+        fi
+    fi
+    # AWS access key
+    if printf '%s' "$content" | grep -qE 'AKIA[0-9A-Z]{16}'; then
+        err "$file — contains an AWS access key id."
+    fi
+    # Private key block
+    # Pattern is split so this line cannot match itself.
+    if printf '%s' "$content" | grep -qE "BEGIN ([A-Z]+ )?PRIV"'ATE KEY'; then
+        err "$file — contains a private key."
+    fi
+done <<< "$staged"
+
+# --- 4. Contract gates ------------------------------------------------------
+# Deterministic enforcement of the two rules AGENTS.md states but prose cannot guarantee:
+# a KPI definition may not change without a version bump, and a TBD threshold may not be
+# resolved without an evidence record. Only runs when the relevant configs are staged.
+if printf '%s\n' "$staged" | grep -qE '^configs/(kpi_config|quality_rules)\.yml$'; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        err "python3 not found — required to validate configs/. Install it, or fix the config by hand and re-run."
+    else
+        if ! python3 .claude/skills/kpi-contract-guard/scripts/check_kpi_contract.py --staged --quiet; then
+            fail=1
+        fi
+        if ! python3 .claude/skills/threshold-decision/scripts/check_thresholds.py --staged --quiet; then
+            fail=1
+        fi
+    fi
+fi
+
+# --- 5. Layer contracts -----------------------------------------------------
+# Bronze immutable, Silver deterministic, Gold idempotent, plus the BDD-07 wording rule.
+# Scans only staged files, so it costs nothing until transformation code exists.
+if printf '%s\n' "$staged" | grep -qE '^(src|configs)/.*\.(sql|py|yml|yaml)$'; then
+    if command -v python3 >/dev/null 2>&1; then
+        if ! python3 .claude/skills/medallion-transform/scripts/check_layer_contracts.py --staged --quiet; then
+            fail=1
+        fi
+    fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+    printf '\nCommit rejected. Fix the issues above — do not use --no-verify.\n' >&2
+    exit 1
+fi
+exit 0

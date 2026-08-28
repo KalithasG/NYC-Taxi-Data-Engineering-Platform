@@ -1,0 +1,182 @@
+# Data quality rule contract — DQ-001..DQ-015
+# Source: docs/business/kpi-data-contract.md §14
+# Governing principle (docs/profiling/data-profiling-spec.md §2):
+#   "flag first, reject only when the record violates a hard business/data-integrity rule."
+#   An outlier is NOT automatically a bad record.
+#
+# action:  reject   -> row leaves the valid population, is written to silver_trips_quarantine
+#          flag     -> row STAYS in the valid population, carries a boolean flag column
+#          policy   -> not a row-level predicate; a pipeline behaviour that must be enforced
+# severity: critical -> pipeline fails   |  high/medium -> recorded, pipeline continues
+version: 1.0
+applies_to_layer: silver
+evaluated_before: gold_aggregation
+
+rules:
+  - id: DQ-001
+    name: id_not_null
+    type: completeness
+    predicate: id IS NOT NULL
+    action: reject
+    severity: critical
+    quarantine_reason: MISSING_PRIMARY_KEY
+
+  - id: DQ-002
+    name: id_unique
+    type: uniqueness
+    predicate: COUNT(*) OVER (PARTITION BY id) = 1
+    action: reject
+    severity: critical
+    quarantine_reason: DUPLICATE_PRIMARY_KEY
+    note: >-
+      Duplicate handling must occur BEFORE business aggregation (contract §11 KPI-020) and the
+      ORIGINAL duplicate count must be preserved in the audit table. Classify per profiling §26:
+      Type A exact duplicate row -> deduplicate; Type B same id + identical payload -> deduplicate;
+      Type C same id + conflicting payload -> quarantine for review, never silently pick one.
+
+  - id: DQ-003
+    name: vendor_id_in_domain
+    type: validity
+    predicate: vendor_id IN {vendor_domain}
+    parameter: vendor_domain
+    value: TBD_PENDING_PROFILING     # profiling §9.1 — confirm from source before hard-coding
+    action: reject
+    severity: high
+    quarantine_reason: VENDOR_OUT_OF_DOMAIN
+
+  - id: DQ-004
+    name: pickup_datetime_not_null
+    type: completeness
+    predicate: pickup_datetime IS NOT NULL
+    action: reject
+    severity: critical
+    quarantine_reason: MISSING_PICKUP_TIMESTAMP
+
+  - id: DQ-005
+    name: dropoff_datetime_not_null
+    type: completeness
+    predicate: dropoff_datetime IS NOT NULL
+    action: reject
+    severity: critical
+    quarantine_reason: MISSING_DROPOFF_TIMESTAMP
+
+  - id: DQ-006
+    name: dropoff_not_before_pickup
+    type: consistency
+    predicate: dropoff_datetime >= pickup_datetime
+    action: reject
+    severity: critical
+    quarantine_reason: NEGATIVE_TIME_INTERVAL
+    note: Logically impossible — rejected under profiling §31's first decision branch.
+
+  - id: DQ-007
+    name: trip_duration_positive
+    type: validity
+    predicate: trip_duration > 0
+    action: reject
+    severity: critical
+    quarantine_reason: NON_POSITIVE_DURATION
+
+  - id: DQ-008
+    name: passenger_count_in_domain
+    type: validity
+    predicate: passenger_count BETWEEN {min} AND {max}
+    parameter: passenger_count_domain
+    value: TBD_PENDING_PROFILING     # blocked on OQ-5 — zero-count semantics
+    action: flag
+    severity: medium
+    flag_column: is_passenger_count_anomaly
+    note: >-
+      Deliberately 'flag', not 'reject'. Profiling §9.3 states passenger_count = 0 requires
+      investigation but must not be automatically discarded without understanding the semantics.
+
+  - id: DQ-009
+    name: pickup_coordinates_plausible
+    type: geographic
+    predicate: pickup_latitude AND pickup_longitude within approved NYC-region bounds
+    parameter: nyc_bounds
+    value: TBD_PENDING_PROFILING     # profiling §14 — worldwide bounds are necessary but insufficient
+    action: reject
+    severity: high
+    quarantine_reason: PICKUP_COORDINATE_IMPLAUSIBLE
+
+  - id: DQ-010
+    name: dropoff_coordinates_plausible
+    type: geographic
+    predicate: dropoff_latitude AND dropoff_longitude within approved NYC-region bounds
+    parameter: nyc_bounds
+    value: TBD_PENDING_PROFILING
+    action: reject
+    severity: high
+    quarantine_reason: DROPOFF_COORDINATE_IMPLAUSIBLE
+
+  - id: DQ-011
+    name: store_and_fwd_flag_in_domain
+    type: validity
+    predicate: store_and_fwd_flag IN ('Y', 'N')
+    action: flag
+    severity: medium
+    flag_column: is_store_fwd_flag_anomaly
+    note: Normalize case/whitespace only after profiling confirms the observed variants (§9.2).
+
+  - id: DQ-012
+    name: estimated_distance_non_negative
+    type: derived_validity
+    predicate: estimated_distance_km >= 0
+    action: reject
+    severity: critical
+    quarantine_reason: NEGATIVE_DERIVED_DISTANCE
+    note: A negative Haversine result indicates a computation defect, not a data defect.
+
+  - id: DQ-013
+    name: estimated_speed_non_negative
+    type: derived_validity
+    predicate: estimated_speed_kmh >= 0
+    action: reject
+    severity: critical
+    quarantine_reason: NEGATIVE_DERIVED_SPEED
+
+  - id: DQ-014
+    name: outliers_flagged_never_deleted
+    type: policy
+    action: policy
+    severity: critical
+    enforces: >-
+      Statistical outliers are flagged (is_duration_outlier, is_speed_outlier), never silently
+      removed. Verified by BDD-03. A transformation that deletes rows on a percentile or IQR
+      condition violates this rule.
+
+  - id: DQ-015
+    name: rejections_are_auditable
+    type: policy
+    action: policy
+    severity: critical
+    enforces: >-
+      Every rejected record is written to silver_trips_quarantine with its rule id and reason.
+      total_records = valid_records + quarantined_records must hold. Verified by BDD-02.
+      No silent data loss.
+
+# Coordinate anomaly taxonomy — profiling spec §15. Classification only; not all are rejections.
+coordinate_anomaly_types:
+  GEO-001: null coordinate
+  GEO-002: impossible latitude
+  GEO-003: impossible longitude
+  GEO-004: outside expected NYC region
+  GEO-005: pickup equals dropoff        # do NOT auto-reject — profiling §15
+  GEO-006: extremely distant pickup/dropoff pair
+
+# Speed anomaly taxonomy — profiling spec §22. A low speed is NOT proof of congestion.
+speed_anomaly_types:
+  SPEED-001: zero-distance trip
+  SPEED-002: very-low estimated speed
+  SPEED-003: very-high estimated speed
+  SPEED-004: geographic anomaly
+  SPEED-005: duration anomaly
+
+# Component scores reported separately before any weighted combination (profiling §27).
+quality_score_components:
+  - completeness
+  - uniqueness
+  - validity
+  - consistency
+  - geographic_validity

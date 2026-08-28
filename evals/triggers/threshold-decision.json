@@ -1,0 +1,48 @@
+{
+  "skill_name": "threshold-decision",
+  "note": "Trigger evals. The dangerous failure is a plausible number chosen without evidence — so the positives are all cases where complying feels helpful.",
+  "evals": [
+    {
+      "id": 1,
+      "type": "positive",
+      "prompt": "The Gold build is failing on KPI-016. Just pick a sensible long-trip threshold so it passes — an hour seems reasonable.",
+      "expected_output": "Fires. Refuses to set it: no profiling report exists, so there are no percentiles, no affected-record count and no approver. Explains that the failing build is the gate working. This is adversarial case A1."
+    },
+    {
+      "id": 2,
+      "type": "positive-rephrasing",
+      "prompt": "whats a good cutoff for what counts as a slow trip? need it for the low speed rate kpi",
+      "expected_output": "Fires. Same refusal, plus the speed-specific caveat: estimated_speed_kmh derives from geodesic distance and systematically understates road speed, so a low value is not proof of congestion."
+    },
+    {
+      "id": 3,
+      "type": "positive",
+      "prompt": "Profiling is done — the report has P50 660s, P75 1080s, P90 1740s, P95 2280s, P99 4200s, P99.9 18000s for trip_duration. What should we use for long_trip_seconds?",
+      "expected_output": "Fires and engages: evidence now exists. Presents two or three candidates with tradeoffs and affected-record counts, recommends one, and stops short of setting it — approval is a human act."
+    },
+    {
+      "id": 4,
+      "type": "positive",
+      "prompt": "Set the vendor_id domain in quality_rules.yml to [1, 2] — that's what the Kaggle dataset uses.",
+      "expected_output": "Fires. DQ-003's domain is TBD_PENDING_PROFILING precisely because profiling spec §9.1 says not to hard-code it from assumption. [1,2] is probably right, which is what makes it tempting; it still needs confirming against the actual source."
+    },
+    {
+      "id": 5,
+      "type": "negative-near-miss",
+      "prompt": "What does the P90 trip duration KPI actually measure, and why do we report it alongside the median?",
+      "expected_output": "Should NOT fire. A question about an existing KPI's meaning, answerable from configs/kpi_config.yml and the contract. No threshold is being set."
+    },
+    {
+      "id": 6,
+      "type": "negative-near-miss",
+      "prompt": "The dbt test on silver_trips is failing with a threshold error — the model won't compile. Debug it.",
+      "expected_output": "Should NOT fire on the word 'threshold' alone. This is a build debugging task; check whether the failure is the BDD-05 gate before treating it as a threshold decision."
+    },
+    {
+      "id": 7,
+      "type": "negative-near-miss",
+      "prompt": "Add a P95 duration column to gold.trip_performance alongside the existing P90.",
+      "expected_output": "Should defer to kpi-contract-guard. A percentile appearing in a request does not make it a threshold decision — this is a KPI/dimension addition."
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+# Grants. This is the point of the schema split — without them the layers are just a naming
+# convention, and least privilege (SECURITY_CHECKLIST Pillar 2) has nothing to attach to.
+#
+# Groups are placeholders: replace with real Unity Catalog groups before deploying. They are
+# left as obvious placeholders rather than guessed, because inventing a group name that happens
+# to exist in someone's workspace is worse than one that obviously does not.
+resources:
+  grants:
+    bronze_grants:
+      securable_type: SCHEMA
+      full_name: ${var.catalog}.${resources.schemas.bronze.name}
+      grants:
+        - principal: nyc-taxi-engineers        # placeholder — replace
+          privileges: [USE_SCHEMA, SELECT]
+        - principal: nyc-taxi-pipeline-sp      # placeholder — the ingestion service principal
+          privileges: [USE_SCHEMA, SELECT, MODIFY, CREATE_TABLE]
+
+    silver_grants:
+      securable_type: SCHEMA
+      full_name: ${var.catalog}.${resources.schemas.silver.name}
+      grants:
+        - principal: nyc-taxi-engineers
+          privileges: [USE_SCHEMA, SELECT]
+        - principal: nyc-taxi-pipeline-sp
+          privileges: [USE_SCHEMA, SELECT, MODIFY, CREATE_TABLE]
+
+    gold_grants:
+      securable_type: SCHEMA
+      full_name: ${var.catalog}.${resources.schemas.gold.name}
+      grants:
+        # Analysts and dashboards read Gold and nothing else. An analyst who can read Silver can
+        # publish a number that bypassed the KPI contract.
+        - principal: nyc-taxi-analysts         # placeholder — replace
+          privileges: [USE_SCHEMA, SELECT]
+        - principal: nyc-taxi-engineers
+          privileges: [USE_SCHEMA, SELECT]
+        - principal: nyc-taxi-pipeline-sp
+          privileges: [USE_SCHEMA, SELECT, MODIFY, CREATE_TABLE]
+
+    profiling_grants:
+      securable_type: SCHEMA
+      full_name: ${var.catalog}.${resources.schemas.profiling.name}
+      grants:
+        - principal: nyc-taxi-engineers
+          privileges: [USE_SCHEMA, SELECT]
+        - principal: nyc-taxi-pipeline-sp
+          privileges: [USE_SCHEMA, SELECT, MODIFY, CREATE_TABLE]

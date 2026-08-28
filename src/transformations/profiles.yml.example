@@ -1,0 +1,26 @@
+# Copy to ~/.dbt/profiles.yml (or set DBT_PROFILES_DIR) and fill in.
+# Never commit a filled-in copy — the pre-commit hook blocks tokens.
+nyc_taxi_platform:
+  target: local
+  outputs:
+
+    # Local verification: real Spark SQL, same dialect as Databricks, no workspace needed.
+    local:
+      type: spark
+      method: session
+      schema: nyc_taxi_dev
+      host: local
+      threads: 1
+
+    # Databricks Free Edition: serverless SQL warehouse + Unity Catalog.
+    databricks:
+      type: databricks
+      catalog: "{{ env_var('DATABRICKS_CATALOG', 'nyc_taxi') }}"
+      schema: "{{ env_var('DATABRICKS_SCHEMA_DEV', 'nyc_taxi_dev') }}"
+      host: "{{ env_var('DATABRICKS_HOST') | replace('https://','') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      # Prefer an OAuth service principal over a PAT (SECURITY_CHECKLIST Pillar 5).
+      auth_type: oauth
+      client_id: "{{ env_var('DATABRICKS_CLIENT_ID', '') }}"
+      client_secret: "{{ env_var('DATABRICKS_CLIENT_SECRET', '') }}"
+      threads: 4

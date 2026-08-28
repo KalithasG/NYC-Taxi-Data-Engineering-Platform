@@ -1,0 +1,286 @@
+# KPI contract (machine-readable) — KPI-001..KPI-020
+# Source: docs/business/kpi-data-contract.md §6-§11, priorities from
+#         docs/business/kpi-discussion.md §12
+#
+# SCOPE: 20 KPIs. Metrics that evaluate a predictive model rather than the taxi operation are
+# out of scope for this platform — see kpi-data-contract.md §12. The v1.1 record of that scope
+# decision is drafted in kpi-changelog.md and still awaits human approval (spec OQ-1); it is a
+# retroactive record of a scope this file already had, so nothing here changes when it is signed.
+#
+# CONTRACT v1.2 (approved 2026-08-27): the Gold marts moved into their own Unity Catalog schema,
+# gold_<mart> -> gold.<mart>. A relocation, not a redefinition — no formula, filter or grain
+# changed and figures stay comparable. Recorded in kpi-changelog.md.
+#
+# THRESHOLD GOVERNANCE (contract §18): any value of TBD_PENDING_PROFILING is a HARD BUILD STOP.
+# The pipeline must fail rather than substitute a default. Verified by BDD-05.
+version: 1.0
+contract_version: 1.2
+kpi_count: 20
+default_filter: is_valid_trip = true
+default_grain: reporting period
+
+thresholds:
+  long_trip_seconds:        TBD_PENDING_PROFILING   # KPI-016
+  low_speed_kmh:            TBD_PENDING_PROFILING   # KPI-017
+  extreme_duration_seconds: TBD_PENDING_PROFILING
+  extreme_distance_km:      TBD_PENDING_PROFILING
+  geographic_outlier_bounds: TBD_PENDING_PROFILING
+  passenger_count_anomaly:  TBD_PENDING_PROFILING
+
+time_of_day_buckets:        # analytical categories, not business facts (profiling §12)
+  morning:   "05:00-11:59"
+  afternoon: "12:00-16:59"
+  evening:   "17:00-20:59"
+  night:     "21:00-04:59"
+
+kpis:
+  # ---------- Trip Performance ----------
+  - id: KPI-001
+    name: Total Trips
+    domain: trip_performance
+    priority: P0
+    mart: gold.trip_performance
+    formula: COUNT(DISTINCT id)
+    grain: period
+    filter: is_valid_trip = true
+    dimensions: [date, day_of_week, hour, time_of_day, vendor, pickup_area, dropoff_area, route]
+
+  - id: KPI-002
+    name: Average Trip Duration
+    domain: trip_performance
+    priority: P0
+    mart: gold.trip_performance
+    formula: AVG(trip_duration)
+    grain: period
+    filter: is_valid_trip = true
+    output_units: [seconds, minutes]
+    dimensions: [date, day_of_week, hour, time_of_day, vendor, pickup_area, dropoff_area, route]
+
+  - id: KPI-003
+    name: Median Trip Duration
+    domain: trip_performance
+    priority: P0
+    mart: gold.trip_performance
+    formula: PERCENTILE_CONT(0.50, trip_duration)
+    grain: period
+    filter: is_valid_trip = true
+    output_units: [seconds, minutes]
+    dimensions: [date, day_of_week, hour, time_of_day, vendor]
+
+  - id: KPI-004
+    name: P90 Trip Duration
+    domain: trip_performance
+    priority: P0
+    mart: gold.trip_performance
+    formula: PERCENTILE_CONT(0.90, trip_duration)
+    grain: period
+    filter: is_valid_trip = true
+    output_units: [seconds, minutes]
+    dimensions: [date, day_of_week, hour, time_of_day, vendor]
+
+  # ---------- Operational Efficiency ----------
+  - id: KPI-005
+    name: Average Estimated Distance
+    domain: operational_efficiency
+    priority: P1
+    mart: gold.trip_performance
+    formula: AVG(estimated_distance_km)
+    grain: period
+    filter: is_valid_trip = true AND coordinates_valid = true
+    presentation_label: Average Estimated (Geodesic) Distance
+    caveat: >-
+      Straight-line Haversine distance, NOT road-network distance. Must never be labelled as
+      actual route distance (contract §4, BDD-07).
+    dimensions: [date, vendor, pickup_area, dropoff_area, route]
+
+  - id: KPI-006
+    name: Average Estimated Speed
+    domain: operational_efficiency
+    priority: P1
+    mart: gold.trip_performance
+    formula: AVG(estimated_speed_kmh)
+    grain: period
+    filter: is_valid_trip = true AND trip_duration > 0 AND coordinates_valid = true
+    presentation_label: Average Estimated Speed
+    caveat: >-
+      Derived from geodesic distance. NOT an actual road-speed measurement (contract §6, BDD-07).
+    dimensions: [date, hour, vendor, route]
+
+  # ---------- Demand ----------
+  - id: KPI-007
+    name: Trips Per Day
+    domain: demand
+    priority: P0
+    mart: gold.demand_metrics
+    formula: COUNT(DISTINCT id) GROUP BY pickup_date
+    grain: pickup_date
+    filter: is_valid_trip = true
+    output_columns: [pickup_date, trip_count]
+    dimensions: [vendor, time_of_day, pickup_area]
+
+  - id: KPI-008
+    name: Trips Per Hour
+    domain: demand
+    priority: P0
+    mart: gold.demand_metrics
+    formula: COUNT(DISTINCT id) GROUP BY pickup_hour
+    grain: pickup_date + pickup_hour     # extended grain per contract §7 — supports both views
+    filter: is_valid_trip = true
+    dimensions: [vendor, day_of_week]
+
+  - id: KPI-009
+    name: Peak Demand Hour
+    domain: demand
+    priority: P0
+    mart: gold.demand_metrics
+    formula: ARGMAX(trip_count BY pickup_hour)
+    grain: period
+    filter: is_valid_trip = true
+    output_columns: [peak_hour, trip_count, reporting_period]
+    tie_handling: >-
+      Return all tied hours, or apply a deterministic secondary ordering. Must not be
+      non-deterministic across runs (contract §7, goal G2).
+
+  # ---------- Geography ----------
+  - id: KPI-010
+    name: Top Pickup Area
+    domain: geography
+    priority: P0
+    mart: gold.geographic_metrics
+    formula: COUNT(DISTINCT id) GROUP BY pickup_area ORDER BY trip_count DESC LIMIT 1
+    grain: period
+    filter: is_valid_trip = true
+    implementation_note: >-
+      v1 uses normalized geographic buckets — no official NYC taxi-zone lookup is in scope
+      (contract §8). Zone polygons + spatial join are a documented future enhancement.
+
+  - id: KPI-011
+    name: Top Drop-off Area
+    domain: geography
+    priority: P0
+    mart: gold.geographic_metrics
+    formula: COUNT(DISTINCT id) GROUP BY dropoff_area ORDER BY trip_count DESC LIMIT 1
+    grain: period
+    filter: is_valid_trip = true
+
+  - id: KPI-012
+    name: Top Route
+    domain: geography
+    priority: P0
+    mart: gold.geographic_metrics
+    formula: COUNT(DISTINCT id) GROUP BY pickup_area, dropoff_area ORDER BY trip_count DESC LIMIT 1
+    grain: period
+    filter: is_valid_trip = true
+    route_key: "pickup_area || ' -> ' || dropoff_area"
+    companion_metrics:                   # required for every high-volume route (contract §8)
+      - trip_count
+      - avg_duration
+      - median_duration
+      - p90_duration
+      - avg_estimated_distance
+      - avg_estimated_speed
+
+  # ---------- Vendor ----------
+  - id: KPI-013
+    name: Vendor Trip Share
+    domain: vendor
+    priority: P1
+    mart: gold.vendor_performance
+    formula: vendor_trips / total_trips * 100
+    grain: vendor + period
+    filter: is_valid_trip = true
+    acceptance: Vendor shares sum to ~100% across the included vendor population.
+
+  - id: KPI-014
+    name: Vendor Average Duration
+    domain: vendor
+    priority: P1
+    mart: gold.vendor_performance
+    formula: AVG(trip_duration) GROUP BY vendor_id
+    grain: vendor + period
+    filter: is_valid_trip = true
+    output_units: [seconds, minutes]
+
+  - id: KPI-015
+    name: Vendor P90 Duration
+    domain: vendor
+    priority: P1
+    mart: gold.vendor_performance
+    formula: PERCENTILE_CONT(0.90, trip_duration) GROUP BY vendor_id
+    grain: vendor + period
+    filter: is_valid_trip = true
+    interpretation_caveat: >-
+      Lower P90 suggests better long-tail performance BUT trip mixes differ between vendors.
+      Do not infer operational superiority from this metric alone (contract §9, profiling §23D).
+
+  # ---------- Operations ----------
+  - id: KPI-016
+    name: Long Trip Rate
+    domain: operations
+    priority: P1
+    mart: gold.trip_performance
+    formula: long_trips / valid_trips * 100
+    grain: period
+    filter: is_valid_trip = true
+    threshold_ref: long_trip_seconds
+    threshold_status: TBD_PENDING_PROFILING
+    blocks_build: true
+    candidate_methods: [business_threshold, percentile, iqr, hybrid]
+
+  - id: KPI-017
+    name: Low-Speed Trip Rate
+    domain: operations
+    priority: P1
+    mart: gold.trip_performance
+    formula: low_speed_trips / valid_trips * 100
+    grain: period
+    filter: is_valid_trip = true AND coordinates_valid = true
+    threshold_ref: low_speed_kmh
+    threshold_status: TBD_PENDING_PROFILING
+    blocks_build: true
+    interpretation_caveat: >-
+      MUST NOT be presented as confirmed congestion. Candidate causes include traffic, route vs
+      straight-line divergence, waiting time inside duration, coordinate quality, or a genuinely
+      unusual trip (contract §10, profiling §22).
+
+  # ---------- Data Quality ----------
+  - id: KPI-018
+    name: Data Quality Score
+    domain: data_quality
+    priority: P0
+    mart: gold.data_quality
+    formula: valid_records / total_records * 100
+    grain: batch
+    filter: none — evaluated over ALL source records
+    components: [completeness, uniqueness, validity, consistency, geographic_validity]
+
+  - id: KPI-019
+    name: Invalid Record Rate
+    domain: data_quality
+    priority: P0
+    mart: gold.data_quality
+    formula: invalid_records / total_records * 100
+    grain: batch
+    filter: none
+    relationship: invalid_record_rate = 100 - data_quality_score
+
+  - id: KPI-020
+    name: Duplicate Rate
+    domain: data_quality
+    priority: P0
+    mart: gold.data_quality
+    formula: duplicate_records / total_records * 100
+    grain: batch
+    filter: none
+    primary_key: id
+    note: >-
+      Computed from the ORIGINAL pre-deduplication count. Deduplication happens before business
+      aggregation, so this KPI must read the audit table, not the deduplicated Silver table
+      (contract §11, BDD-06).
+
+# Out of scope — listed so the omission is explicit rather than an oversight. These ids appeared
+# in the v1.0 contract document; they measure a model, not the taxi operation, and are not part
+# of this platform. The agent must NOT implement them here.
+out_of_scope:
+  reason: model performance metrics — see docs/business/kpi-data-contract.md §12
+  ids: [KPI-021, KPI-022, KPI-023, KPI-024]

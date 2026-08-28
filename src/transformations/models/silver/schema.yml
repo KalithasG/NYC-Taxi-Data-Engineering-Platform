@@ -1,0 +1,36 @@
+version: 2
+models:
+  - name: silver_typed
+    description: Typed and derived, nothing removed. Deterministic — same Bronze in, same rows out.
+  - name: silver_dq_evaluated
+    description: DQ-001..DQ-013 evaluated per row. Still nothing removed; the split happens downstream.
+  - name: silver_trips
+    description: >-
+      The trusted trip population, one row per valid trip id. Outliers are flagged, never
+      removed (DQ-014, BDD-03).
+    columns:
+      - name: id
+        description: Primary key. Unique across the valid population (DQ-001, DQ-002).
+        data_tests: [not_null, unique]
+      - name: trip_duration
+        description: Seconds. Positive by construction (DQ-007).
+        data_tests: [not_null]
+      - name: estimated_distance_km
+        description: >-
+          Geodesic Haversine distance — NOT road distance, and never to be labelled as such
+          (BDD-07). Non-negative (DQ-012).
+      - name: estimated_speed_kmh
+        description: >-
+          Derived from geodesic distance, so it systematically understates real driving speed.
+          Not a road-speed measurement (BDD-07). Non-negative (DQ-013).
+      - name: is_valid_trip
+        description: Always true in this model; the column exists so KPI filters read the same everywhere.
+  - name: silver_trips_quarantine
+    description: Rejected rows with rule id and reason (DQ-015). Original columns kept verbatim.
+    columns:
+      - name: rule_id
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['DQ-001','DQ-002','DQ-003','DQ-004','DQ-005','DQ-006','DQ-007',
+                       'DQ-009','DQ-010','DQ-012','DQ-013']

@@ -1,0 +1,29 @@
+# Pinned per specs/nyc-taxi-data-engineering-platform-spec.md §7.
+# Versions verified against PyPI on 2026-08-27.
+# Python 3.11 (matches Databricks serverless).
+
+# --- Databricks ---
+databricks-sdk==0.133.0
+databricks-sql-connector==4.4.0
+
+# --- Transformations ---
+dbt-core==1.12.3
+dbt-databricks==1.12.4
+dbt-spark[session]==1.11.0   # local verification target: same SQL, no workspace needed
+
+# --- Profiling / config ---
+pandas==3.0.5
+pyyaml==6.0.3
+python-dotenv==1.2.3
+
+# --- Quality gates ---
+pytest==9.1.1
+ruff==0.16.4
+sqlfluff==4.3.0
+
+# --- Local verification harness ---
+pyspark==4.2.0               # runs the models locally; same engine Databricks uses
+delta-spark==4.4.0           # Delta locally too, so local format == production format
+
+# Deferred (see spec §7 — not installed):
+#   great-expectations==1.21.0 rejected in spec §4 in favour of dbt tests

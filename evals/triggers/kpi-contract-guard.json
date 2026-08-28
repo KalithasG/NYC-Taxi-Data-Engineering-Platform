@@ -1,0 +1,48 @@
+{
+  "skill_name": "kpi-contract-guard",
+  "note": "Trigger evals. The trigger is the first gate — a skill that does not fire is worth nothing. Each positive case has a rephrasing; each has a near-miss negative that shares vocabulary but needs different handling.",
+  "evals": [
+    {
+      "id": 1,
+      "type": "positive",
+      "prompt": "KPI-002 is being dragged up by a handful of absurd 20-hour trips. Change it to exclude anything flagged as a duration outlier so the average actually reflects a normal ride.",
+      "expected_output": "Fires. Runs check_kpi_contract.py, identifies the formula change as breaking (2.0), notes that KPI-003 median and KPI-004 P90 already exist for skew, requires a changelog entry with a human approver before proceeding."
+    },
+    {
+      "id": 2,
+      "type": "positive-rephrasing",
+      "prompt": "can you tweak the avg trip duration metric in configs/kpi_config.yml? just want it to only count trips under the outlier cutoff",
+      "expected_output": "Fires despite casual phrasing and no mention of 'contract' or 'version'. Same handling as eval 1."
+    },
+    {
+      "id": 3,
+      "type": "positive",
+      "prompt": "We should add RMSLE to the gold layer so we can track model accuracy alongside the business KPIs.",
+      "expected_output": "Fires. Refuses: KPI-021 measures a model rather than the taxi operation and is out of scope (contract §12, spec §2). The script blocks it independently."
+    },
+    {
+      "id": 4,
+      "type": "positive",
+      "prompt": "Vendor trip share should be grouped by vendor and month rather than just vendor for the period. Update KPI-013.",
+      "expected_output": "Fires. Grain change is semantic and breaking — historical comparability is affected. Needs a 2.0 bump and a changelog entry."
+    },
+    {
+      "id": 5,
+      "type": "negative-near-miss",
+      "prompt": "The caveat on KPI-006 has a typo — it says 'estimated speed based on straight-line distance' twice. Fix the duplication.",
+      "expected_output": "Should NOT block. A caveat is editorial; the script reports it as informational and allows the commit. Fixing a typo must not require a contract version bump, or the gate becomes noise people route around."
+    },
+    {
+      "id": 6,
+      "type": "negative-near-miss",
+      "prompt": "KPI-016 Long Trip Rate is failing the build because long_trip_seconds is still TBD. Sort it out.",
+      "expected_output": "Should defer to threshold-decision, not kpi-contract-guard. Setting the threshold is the primary task; the contract bump is a downstream consequence handed off afterwards."
+    },
+    {
+      "id": 7,
+      "type": "negative-near-miss",
+      "prompt": "Average trip duration on the dashboard reads 15 minutes but the SQL I ran by hand says 16.2. Figure out which is right.",
+      "expected_output": "Should NOT fire as a contract change. This is a discrepancy investigation — the fix is probably a filter mismatch or a stale mart, not a redefinition. Firing here would frame a bug as a definition change."
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+version: 2
+sources:
+  - name: bronze
+    # Bronze's own schema. Local ingestion lands it in the profile schema (load_bronze's
+    # --schema default), while Databricks uses one schema per medallion layer and lands it in
+    # `bronze` — so the layer schema has to be overridable rather than assumed flat.
+    schema: "{{ var('bronze_schema', var('schema_name', 'nyc_taxi_dev')) }}"
+    description: >-
+      Raw landing zone. Append-only and immutable: never updated, never deleted. A correction
+      is a new ingestion, not an edit. Written by src/ingestion/load_bronze.py.
+    tables:
+      - name: bronze_trips
+        description: Source rows verbatim, plus source_file / source_hash / ingested_at.
+        columns:
+          - name: source_hash
+            description: SHA256 of the input file. Re-ingesting the same hash adds no rows (BDD-01).
