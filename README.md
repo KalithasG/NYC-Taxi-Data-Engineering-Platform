@@ -180,8 +180,17 @@ never mixed in one column.
 
 ## Dashboard
 
-An AI/BI dashboard declared in the bundle rather than assembled by clicking, so panels review as a
-diff: 21 widgets over 8 datasets — KPI counters, demand trend, hour-of-day profile, vendor
+**[View the live snapshot →](https://claude.ai/code/artifact/e11af344-c415-468b-a7f8-8af25514201b)**
+· source: [`docs/dashboards/snapshot.html`](docs/dashboards/snapshot.html)
+
+The interactive Databricks AI/BI dashboard **cannot be shared publicly** — Databricks requires
+every viewer to be registered with the account, so its URL is a login wall for anyone outside the
+workspace. `scripts/generate_dashboard_snapshot.py` therefore reads the same Gold marts and emits
+one self-contained HTML page that opens anywhere, carrying the run id and source hash so a reader
+can tell exactly which pipeline run produced the numbers.
+
+The dashboard itself is declared in the bundle rather than assembled by clicking, so panels review
+as a diff: 21 widgets over 8 datasets — KPI counters, demand trend, hour-of-day profile, vendor
 comparison, top areas and routes, data-quality detail and the quarantine breakdown. Generated from
 the same SQL in `src/dashboards/queries/` by `scripts/generate_dashboard.py`.
 
