@@ -27,7 +27,9 @@ WITH e AS (
 
         -- ---- vendor domain: DQ-003, parameter pending profiling ----
         {% if threshold_is_approved('vendor_domain') | trim == 'True' %}
-        (vendor_id IN ({{ var('vendor_domain') }}))                         AS pass_dq_003,
+        {# join, not bare interpolation: a YAML list renders as "[1, 2]" and IN ([1, 2])
+           is a syntax error. The list stays a list in the config, where it belongs. #}
+        (vendor_id IN ({{ var('vendor_domain') | join(', ') }}))            AS pass_dq_003,
         {% else %}
         (vendor_id IS NOT NULL)                                             AS pass_dq_003,
         {% endif %}

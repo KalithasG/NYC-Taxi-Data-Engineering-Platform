@@ -148,16 +148,15 @@ def test_dq_015_reconciliation(spark):
 # DQ-008, DQ-009 and DQ-010 were approved on 2026-08-29 from profiling evidence, which is the
 # revisit this test asked for when it covered all four. DQ-003 is the one still pending: it
 # rejects, so an unreviewed vendor domain would quarantine real rows.
-@pytest.mark.parametrize("rid", ["DQ-003"])
-def test_pending_parameters_are_still_sentinels(rid):
-    """Still waiting on an approval. If one acquires a value without a decision record,
-    check_thresholds.py blocks the commit."""
-    assert BY_ID[rid].get("value") == SENTINEL, (
-        f"{rid} now has a value — re-check the partial-enforcement assumptions in "
-        f"silver_dq_evaluated.sql and update these tests")
+def test_no_dq_parameter_is_left_pending():
+    """All four parameters were approved from profiling evidence — DQ-008/009/010 on
+    2026-08-29 and DQ-003 alongside them. A sentinel reappearing means a value was reverted
+    without a record, which is the state this file exists to notice."""
+    pending = [r["id"] for r in RULES if r.get("value") == SENTINEL]
+    assert pending == [], f"unexpected pending parameters: {pending}"
 
 
-@pytest.mark.parametrize("rid", ["DQ-008", "DQ-009", "DQ-010"])
+@pytest.mark.parametrize("rid", ["DQ-003", "DQ-008", "DQ-009", "DQ-010"])
 def test_approved_parameters_have_a_value_and_a_decision_record(rid):
     """A resolved parameter is only legitimate with a recorded decision behind it. Asserting the
     value alone would let a number appear with nobody's name on it, which is the failure the

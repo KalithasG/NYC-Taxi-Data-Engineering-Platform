@@ -256,12 +256,41 @@ capacity as normal.
 **Effective date:** 2026-08-29
 **Contract bump:** no — a flag parameter. No KPI formula changes and no row leaves the population.
 
-## Still pending
+## vendor_domain
 
-**`vendor_domain`** (DQ-003) remains `TBD_PENDING_PROFILING`. Profiling observed exactly two
-values — 2: 780,302 (53.50%) and 1: 678,342 (46.51%) — which covers 100% of rows, so `[1,2]` is
-the evidenced domain. It was not included in this approval pass and DQ-003 stays unenforced until
-it is signed off. DQ-003 rejects, so setting it wrongly quarantines real rows.
+The last parameter left pending after the 2026-08-29 approvals, held back at the time precisely
+because DQ-003 **rejects**: an unreviewed domain would quarantine real trips rather than merely
+flag them.
+
+**Value:** `[1, 2]`
+**Method:** observed domain — the complete set of values present in the source.
+**Evidence:** profiling of all 1,458,644 rows found exactly two values: `2` → 780,302 (53.4950%)
+and `1` → 678,342 (46.5050%). Together they account for 100% of rows, with no nulls and no third
+value anywhere in the six-month window.
+**Records affected:** **0 rows.** Measured against `silver_typed` at approval time:
+`vendor_id NOT IN (1,2) OR vendor_id IS NULL` returns zero. Enforcing DQ-003 quarantines nothing
+today, so no KPI value moves and the valid population stays at 1,457,659.
+**Business rationale:** the NYC TLC trip-record schema defines `vendor_id` as the code of the
+provider that supplied the record, and this dataset carries the two that existed for the period.
+A domain rule on a two-valued code column is what turns "we assume it is 1 or 2" into something
+the pipeline actually checks — until now DQ-003 only asserted the column was not null, which
+would have accepted a `7` without comment.
+**Alternatives considered:** leaving it pending — rejected, because the evidence is complete
+rather than partial: this is not a cutoff on a distribution where a judgement call is required,
+it is the observed set, and DQ-003 was the only rule still unenforced. Widening it to `[1, 2, 3]`
+to pre-accept a future provider — rejected: a domain that admits values the data has never
+contained is not a check, and a genuinely new vendor should surface as a quarantined row with a
+rule id rather than pass silently.
+**Approved by:** Kalithas G (kalithas878@gmail.com)
+**Effective date:** 2026-08-29
+**Contract bump:** no. No KPI formula, filter, grain or dimension changes, and because zero rows
+are rejected the valid population is unchanged — figures either side of this date are directly
+comparable. Contract stays at v2.0.
+
+**Known consequence, accepted:** if a future batch introduces a third provider code, those rows
+are quarantined under DQ-003 rather than flowing into the KPIs. That is the intended behaviour —
+they remain in `silver_trips_quarantine` with their rule id and every original column, and the
+fix is a new decision record widening the domain, not a silent pass.
 
 ## Measured after the rebuild
 
@@ -280,3 +309,8 @@ slightly below their pre-approval estimates:
 The gap is not drift — it is the smaller denominator, and it is exactly why the coordinate-bounds
 change was recorded as a major contract version rather than a minor one. Reconciliation holds
 after the rebuild: 1,458,644 = 1,457,659 + 985.
+
+## Nothing pending
+
+As of 2026-08-29 every threshold and DQ parameter is resolved with a decision record
+above. `check_thresholds.py` reports 10 resolved and none outstanding.

@@ -39,7 +39,7 @@ rules:
     type: validity
     predicate: vendor_id IN {vendor_domain}
     parameter: vendor_domain
-    value: TBD_PENDING_PROFILING     # profiling §9.1 — confirm from source before hard-coding
+    value: [1, 2]   # approved 2026-08-29 — observed domain, 100% coverage     # profiling §9.1 — confirm from source before hard-coding
     action: reject
     severity: high
     quarantine_reason: VENDOR_OUT_OF_DOMAIN

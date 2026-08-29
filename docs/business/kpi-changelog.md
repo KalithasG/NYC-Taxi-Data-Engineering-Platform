@@ -137,10 +137,12 @@ populate `is_duration_outlier`, GEO-006 and `is_passenger_count_anomaly`. All th
 retain; none removes a row or alters a KPI formula. Recorded here for completeness rather than
 because they change a definition. **Approved by:** Kalithas G (kalithas878@gmail.com)
 
-### Still pending after this version
-`vendor_domain` (DQ-003) remains `TBD_PENDING_PROFILING`. Profiling observed exactly `[1, 2]`
-covering 100% of rows, but it was not part of this approval pass, so DQ-003 stays unenforced.
-DQ-003 rejects, so an unreviewed value would quarantine real rows.
+### vendor_domain, approved the same day
+`vendor_domain` (DQ-003) was initially held back because DQ-003 rejects rather than
+flags. It was approved as `[1, 2]` on the same evidence: profiling found exactly those
+two values across all 1,458,644 rows, and enforcing the domain rejects **0 rows**, so no
+KPI value moves and the contract stays at v2.0. Every threshold and DQ parameter is now
+resolved. **Approved by:** Kalithas G (kalithas878@gmail.com)
 
 ## v1.2 — 2026-08-27
 

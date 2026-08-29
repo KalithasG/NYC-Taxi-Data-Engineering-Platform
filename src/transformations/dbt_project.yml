@@ -31,6 +31,6 @@ vars:
   low_speed_kmh: 5
   extreme_duration_seconds: 86400
   extreme_distance_km: 100
-  vendor_domain: "TBD_PENDING_PROFILING"
+  vendor_domain: [1, 2]
   passenger_count_domain: {min: 1, max: 6}
   nyc_bounds: {lat_min: 40.4, lat_max: 41.0, lon_min: -74.3, lon_max: -73.7}
