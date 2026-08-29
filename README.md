@@ -180,24 +180,27 @@ never mixed in one column.
 
 ## Dashboard
 
-**[View the operations snapshot →](https://kalithasg.github.io/NYC-Taxi-Data-Engineering-Platform/dashboards/snapshot.html)**
-· [project page](https://kalithasg.github.io/NYC-Taxi-Data-Engineering-Platform/)
-· source: [`docs/dashboards/snapshot.html`](docs/dashboards/snapshot.html)
+The AI/BI dashboard running on Databricks — 21 panels over 8 datasets, declared in the Asset
+Bundle rather than assembled by clicking, so every panel reviews as a diff.
 
-The interactive Databricks AI/BI dashboard **cannot be shared publicly** — Databricks requires
-every viewer to be registered with the account, so its URL is a login wall for anyone outside the
-workspace. `scripts/generate_dashboard_snapshot.py` therefore reads the same Gold marts and emits
-one self-contained HTML page that opens anywhere, carrying the run id and source hash so a reader
-can tell exactly which pipeline run produced the numbers.
+![NYC Taxi operations dashboard](docs/dashboards/images/nyc-taxi-dashboard-full.png)
 
-The dashboard itself is declared in the bundle rather than assembled by clicking, so panels review
-as a diff: 21 widgets over 8 datasets — KPI counters, demand trend, hour-of-day profile, vendor
-comparison, top areas and routes, data-quality detail and the quarantine breakdown. Generated from
-the same SQL in `src/dashboards/queries/` by `scripts/generate_dashboard.py`.
+| Panel | What it shows |
+|---|---|
+| [KPI tiles](docs/dashboards/images/01-kpi-tiles.png) | KPI-001…006, plus KPI-016/017 now that their thresholds are approved |
+| [Quality & demand trend](docs/dashboards/images/02-data-quality-and-demand-trend.png) | Quality score, quarantine count and breakdown, daily demand across 182 days |
+| [Hourly demand & vendor](docs/dashboards/images/03-hourly-demand-and-vendor.png) | Hour-of-day profile, vendor share, and the vendor table showing P50/P90 beside the mean |
+| [Geography](docs/dashboards/images/04-geography-areas-and-routes.png) | Top pickup and drop-off areas, and top routes with companion metrics |
+| [Data quality by batch](docs/dashboards/images/05-data-quality-by-batch.png) | Component scores kept separate rather than blended into one number |
 
-The vendor panel shows P50 and P90 beside the mean deliberately: durations are right-skewed and
-vendor trip mixes differ, so a chart comparing averages alone invites a conclusion the data does
-not support.
+The dashboard itself is **not publicly shareable** — Databricks requires every viewer to be
+registered with the account — so these are captures of the real thing rather than a link that
+would only be a login wall.
+
+Three labelling rules are visible in the panels and are correctness, not style: distance and
+speed are marked **estimated** and geodesic, KPI-017 is a *low-speed trip rate* and never a
+congestion rate, and the vendor panel shows P50 and P90 beside the mean, because durations are
+right-skewed and vendor trip mixes differ.
 
 ---
 

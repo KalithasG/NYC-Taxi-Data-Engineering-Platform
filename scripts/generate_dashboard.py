@@ -142,8 +142,8 @@ datasets = [
 TITLE = (
     "# NYC Taxi Operations\n\n"
     "Built from the Gold marts. Distance and speed are **estimated** — geodesic "
-    "straight-line, never road distance (BDD-07). KPI-016 and KPI-017 have no tiles because "
-    "All 20 KPIs are live: the six thresholds were approved on 2026-08-29 from profiling evidence (contract v2.0)."
+    "straight-line, never road distance (BDD-07). All 20 KPIs are live: the six "
+    "thresholds were approved on 2026-08-29 from profiling evidence, and the contract moved to v2.0."
 )
 
 GEODESIC = "Geodesic straight-line, not road distance."
