@@ -144,15 +144,38 @@ def test_dq_015_reconciliation(spark):
     assert r.total_records == r.valid_records + r.quarantined_records, "silent data loss"
 
 
-# ---------------------------------------------------------------- pending parameters
-@pytest.mark.parametrize("rid", ["DQ-003", "DQ-008", "DQ-009", "DQ-010"])
+# ---------------------------------------------------------------- parameter governance
+# DQ-008, DQ-009 and DQ-010 were approved on 2026-08-29 from profiling evidence, which is the
+# revisit this test asked for when it covered all four. DQ-003 is the one still pending: it
+# rejects, so an unreviewed vendor domain would quarantine real rows.
+@pytest.mark.parametrize("rid", ["DQ-003"])
 def test_pending_parameters_are_still_sentinels(rid):
-    """These four wait on profiling evidence. If one acquires a value without a decision record,
-    check_thresholds.py blocks the commit — this asserts the state the pipeline was built for,
-    so the day it changes, the tests that assume partial enforcement are revisited."""
+    """Still waiting on an approval. If one acquires a value without a decision record,
+    check_thresholds.py blocks the commit."""
     assert BY_ID[rid].get("value") == SENTINEL, (
         f"{rid} now has a value — re-check the partial-enforcement assumptions in "
         f"silver_dq_evaluated.sql and update these tests")
+
+
+@pytest.mark.parametrize("rid", ["DQ-008", "DQ-009", "DQ-010"])
+def test_approved_parameters_have_a_value_and_a_decision_record(rid):
+    """A resolved parameter is only legitimate with a recorded decision behind it. Asserting the
+    value alone would let a number appear with nobody's name on it, which is the failure the
+    whole threshold-governance design exists to prevent."""
+    rule = BY_ID[rid]
+    value = rule.get("value")
+    assert value != SENTINEL, f"{rid} lost its approved value"
+    assert value not in (None, ""), f"{rid} has an empty value"
+
+    decisions = (ROOT / "docs" / "profiling" / "threshold-decisions.md").read_text(
+        encoding="utf-8")
+    param = rule.get("parameter")
+    assert param and param in decisions, (
+        f"{rid}.{param} has a value but no decision record in threshold-decisions.md")
+    section = decisions[decisions.index(param):]
+    for field in ("Approved by", "Evidence", "Records affected", "Alternatives"):
+        assert field.lower() in section.lower()[:4000], (
+            f"the {param} decision record is missing '{field}'")
 
 
 def test_geo_005_is_classified_not_rejected(spark):
