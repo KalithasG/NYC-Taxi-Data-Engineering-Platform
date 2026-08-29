@@ -12,7 +12,11 @@ Run:
     pytest tests/test_pipeline_e2e.py
 """
 
+import pathlib
+
 import pytest
+
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 pyspark = pytest.importorskip("pyspark", reason="local Spark verification harness")
 
@@ -124,11 +128,51 @@ def test_geographic_mart_ranks_all_three_dimensions(spark):
 
 
 # ---------- BDD-05: thresholds ----------
-def test_blocked_kpis_are_withheld_not_defaulted(spark):
+def test_approved_thresholds_produce_values_not_placeholders(spark):
+    """The six thresholds were approved on 2026-08-29 (contract v2.0), so KPI-016 and KPI-017
+    are computed. This asserted the opposite until then; the withheld path is still covered by
+    test_withheld_marker_names_the_threshold_it_waits_on, which does not depend on the repo
+    holding an unapproved value."""
     cols = spark.table("gold.trip_performance").columns
-    assert "kpi_016_withheld_pending_long_trip_seconds" in cols
-    assert "kpi_017_withheld_pending_low_speed_kmh" in cols
-    assert "kpi_016_long_trip_rate_pct" not in cols, "a withheld KPI must not appear as a value"
+    assert "kpi_016_long_trip_rate_pct" in cols
+    assert "kpi_017_low_speed_rate_pct" in cols
+    assert "kpi_016_withheld_pending_long_trip_seconds" not in cols,         "an approved KPI must not still be marked withheld"
+
+
+def test_withheld_marker_names_the_threshold_it_waits_on():
+    """A withheld KPI has to say what would release it — a NULL column called `kpi_016` tells a
+    reader nothing. Exercises the macro directly so it keeps testing the rule after every
+    threshold is approved."""
+    import re
+
+    macro = (ROOT / "src" / "transformations" / "macros" / "thresholds.sql").read_text()
+    assert "withheld_note" in macro
+    body = macro[macro.index("macro withheld_note"):]
+    assert "withheld_pending_" in body, "the marker must name the pending threshold"
+    assert re.search(r"CAST\(NULL AS DOUBLE\)", body), "a withheld KPI is NULL, never defaulted"
+
+
+def test_unapproved_threshold_blocks_the_build(tmp_path):
+    """BDD-05 itself: with a sentinel planted, the build must refuse rather than substitute."""
+    import shutil
+    import subprocess
+    import sys
+
+    cfg = ROOT / "configs" / "kpi_config.yml"
+    backup = tmp_path / "kpi_config.yml"
+    shutil.copyfile(cfg, backup)
+    try:
+        cfg.write_text(
+            cfg.read_text(encoding="utf-8").replace(
+                "long_trip_seconds:        3600",
+                "long_trip_seconds:        TBD_PENDING_PROFILING", 1),
+            encoding="utf-8")
+        r = subprocess.run([sys.executable, "-m", "src.transformations.run", "--dry-run"],
+                           cwd=ROOT, capture_output=True, text=True)
+        assert r.returncode != 0, "an unapproved threshold must block the build"
+        assert "KPI-016" in (r.stdout + r.stderr), "the block must name the KPI it withheld"
+    finally:
+        shutil.copyfile(backup, cfg)
 
 
 # ---------- BDD-07: wording ----------
