@@ -180,7 +180,8 @@ never mixed in one column.
 
 ## Dashboard
 
-**[View the live snapshot →](https://claude.ai/code/artifact/e11af344-c415-468b-a7f8-8af25514201b)**
+**[View the operations snapshot →](https://kalithasg.github.io/NYC-Taxi-Data-Engineering-Platform/dashboards/snapshot.html)**
+· [project page](https://kalithasg.github.io/NYC-Taxi-Data-Engineering-Platform/)
 · source: [`docs/dashboards/snapshot.html`](docs/dashboards/snapshot.html)
 
 The interactive Databricks AI/BI dashboard **cannot be shared publicly** — Databricks requires

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC Taxi Data Engineering Platform</title>
+<meta name="description" content="A medallion lakehouse turning 1.46M raw taxi trips into 20 governed business KPIs on Databricks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root {
+  --paper:#FAF8F4; --card:#FFFFFF; --sunk:#F1EDE6;
+  --ink:#161C1F; --ink2:#3D4A4F; --ink3:#6B7A80;
+  --rule:#DFD8CD; --accent:#B26A16; --chart:#2F6169; --ok:#2F7A4D;
+  --shadow:0 1px 2px rgba(22,28,31,.06), 0 8px 24px -18px rgba(22,28,31,.5);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:#101619; --card:#161E21; --sunk:#1C2529;
+    --ink:#E9E5DE; --ink2:#B3BDC0; --ink3:#7E8C92;
+    --rule:#263136; --accent:#E0A055; --chart:#5FA3AC; --ok:#5FBF87;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:#101619; --card:#161E21; --sunk:#1C2529;
+  --ink:#E9E5DE; --ink2:#B3BDC0; --ink3:#7E8C92;
+  --rule:#263136; --accent:#E0A055; --chart:#5FA3AC; --ok:#5FBF87;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -20px rgba(0,0,0,.9);
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Source Serif 4",Georgia,serif; font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap { max-width:760px; margin:0 auto; padding:64px 24px 80px; }
+h1,h2,h3,.k,.eyebrow { font-family:Archivo,"Helvetica Neue",Arial,sans-serif; }
+.eyebrow { font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink3); margin:0 0 12px; }
+h1 { font-size:clamp(30px,5vw,44px); line-height:1.06; letter-spacing:-.022em; font-weight:700;
+  margin:0 0 14px; text-wrap:balance; }
+.lede { font-size:18.5px; color:var(--ink2); margin:0 0 30px; }
+.eq { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums;
+  font-size:clamp(14px,2.2vw,18px); background:var(--card); border-left:3px solid var(--accent);
+  border-radius:0 3px 3px 0; padding:15px 18px; margin:0 0 34px; box-shadow:var(--shadow); }
+.eq .v { color:var(--ok); } .eq .q { color:var(--accent); } .eq .op { color:var(--ink3); }
+.cards { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  margin:0 0 34px; }
+a.card { display:block; text-decoration:none; color:inherit; background:var(--card);
+  border:1px solid var(--rule); border-radius:3px; padding:18px; box-shadow:var(--shadow); }
+a.card:hover, a.card:focus-visible { border-color:var(--accent); }
+a.card h2 { font-size:16px; margin:0 0 5px; letter-spacing:-.01em; }
+a.card p { font-size:13.5px; color:var(--ink3); margin:0; }
+.arrow { color:var(--accent); }
+ul.facts { list-style:none; padding:0; margin:0 0 34px; }
+ul.facts li { display:flex; gap:14px; padding:9px 0; border-bottom:1px solid var(--rule);
+  font-size:14.5px; }
+ul.facts .k { font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink3);
+  min-width:132px; letter-spacing:.02em; }
+footer { margin-top:12px; padding-top:20px; border-top:1px solid var(--rule); font-size:13.5px;
+  color:var(--ink3); }
+a { color:var(--accent); }
+a:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+@media (prefers-reduced-motion:reduce) { * { transition:none!important; animation:none!important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Data engineering · Databricks · dbt</p>
+  <h1>NYC Taxi Data Engineering &amp; Analytics Platform</h1>
+  <p class="lede">A medallion lakehouse that turns 1,458,644 raw taxi trips into 20 trusted
+  business KPIs — where “trusted” is enforced by code rather than asserted.</p>
+
+  <p class="eq"><span class="v">1,457,659</span> valid <span class="op">+</span>
+    <span class="q">985</span> quarantined <span class="op">=</span> 1,458,644 ingested</p>
+
+  <div class="cards">
+    <a class="card" href="dashboards/snapshot.html">
+      <h2>Operations snapshot <span class="arrow">→</span></h2>
+      <p>20 KPIs, demand, geography, vendor and data-quality panels, rendered from the live
+      Gold marts.</p>
+    </a>
+    <a class="card" href="https://github.com/KalithasG/NYC-Taxi-Data-Engineering-Platform">
+      <h2>Source on GitHub <span class="arrow">→</span></h2>
+      <p>Pipeline, dbt models, machine-readable contracts, quality gates and agent skills.</p>
+    </a>
+  </div>
+
+  <ul class="facts">
+    <li><span class="k">Scale</span><span>1,458,644 trips · 191 MB · Jan–Jun 2016</span></li>
+    <li><span class="k">Layers</span><span>Bronze append-only · Silver deterministic · Gold idempotent</span></li>
+    <li><span class="k">Quality</span><span>15 rules — 11 reject to quarantine, 2 flag, 2 policy</span></li>
+    <li><span class="k">Tests</span><span>dbt build PASS=28, ERROR=0 · 32 pytest data tests</span></li>
+    <li><span class="k">Governance</span><span>No invented thresholds · no silent data loss · no drifting definitions</span></li>
+  </ul>
+
+  <footer>
+    Built with AI-driven development under executable guardrails — six agent skills, each with a
+    validation script, plus contract gates in pre-commit and CI. The interactive Databricks AI/BI
+    dashboard is not publicly shareable, so the snapshot above is rendered from the same Gold
+    marts and carries the run id and source hash of the pipeline run that produced it.
+  </footer>
+</div>
+</body>
+</html>
