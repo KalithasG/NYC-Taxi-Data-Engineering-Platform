@@ -112,9 +112,20 @@ jobs:
           git config user.email ci@example.com && git config user.name CI
           git config core.hooksPath .githooks
           fail=0
+          # The hook's output is captured rather than discarded: when a case fails, the reason
+          # is the only thing that makes it diagnosable, and swallowing it reduces a specific
+          # complaint to "got block want allow".
           check() { # name, expect(block|allow)
-            if .githooks/pre-commit >/dev/null 2>&1; then r=allow; else r=block; fi
-            if [ "$r" = "$2" ]; then echo "PASS $1 ($r)"; else echo "FAIL $1 (got $r want $2)"; fail=1; fi
+            out=$(.githooks/pre-commit 2>&1) && r=allow || r=block
+            if [ "$r" = "$2" ]; then
+              echo "PASS $1 ($r)"
+            else
+              echo "FAIL $1 (got $r want $2)"
+              echo "--- hook output ---"; echo "$out"
+              echo "--- staged files ---"; git diff --cached --name-only
+              echo "-------------------"
+              fail=1
+            fi
             git reset -q
           }
           printf 'tok="dapi%s"\n' "0123456789abcdef0123456789abcdef" > t.py
@@ -170,12 +181,34 @@ jobs:
       - name: Local Spark config (Delta for every session — ingestion, dbt, profiling, pytest)
         run: echo "SPARK_CONF_DIR=$GITHUB_WORKSPACE/conf" >> "$GITHUB_ENV"
 
-      - name: BDD-05 — default run must be blocked while thresholds are pending
+      # Thresholds were approved on 2026-08-29 (contract v2.0), so the default run now builds.
+      # This step used to assert the opposite, and started failing the moment the platform began
+      # working — it was pinned to a temporary state rather than to the rule it meant to protect.
+      - name: Thresholds approved — the default run builds all 20 KPIs
         run: |
+          python -m src.transformations.run --dry-run
+          echo "PASS: builds with approved thresholds"
+
+      # BDD-05 is still guaranteed, but tested by planting a sentinel rather than by relying on
+      # the repo happening to hold an unapproved threshold. This keeps working now that every
+      # threshold is approved, which is the state the repo stays in from here.
+      - name: BDD-05 — an unapproved threshold still blocks the build
+        run: |
+          cp configs/kpi_config.yml /tmp/kpi_config.orig
+          python - <<'PLANT'
+          import pathlib, re
+          p = pathlib.Path("configs/kpi_config.yml")
+          s = p.read_text(encoding="utf-8")
+          out = re.sub(r"(long_trip_seconds:\s*)3600", r"\1TBD_PENDING_PROFILING", s, count=1)
+          assert out != s, "could not plant the sentinel — has the key been renamed?"
+          p.write_text(out, encoding="utf-8")
+          PLANT
           if python -m src.transformations.run --dry-run; then
-            echo "FAIL: the run should be blocked while KPI-016/017 lack approved thresholds"
+            echo "FAIL: KPI-016 must not build from an unapproved threshold"
+            cp /tmp/kpi_config.orig configs/kpi_config.yml
             exit 1
           fi
+          cp /tmp/kpi_config.orig configs/kpi_config.yml
           echo "PASS: blocked as designed"
       - name: Build and test against the fixture
         run: |
